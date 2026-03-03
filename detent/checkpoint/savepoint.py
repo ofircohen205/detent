@@ -54,9 +54,7 @@ class ShadowGit:
         )
         stdout, stderr = await proc.communicate()
         if proc.returncode != 0:
-            raise RuntimeError(
-                f"git {' '.join(args)} failed: {stderr.decode().strip()}"
-            )
+            raise RuntimeError(f"git {' '.join(args)} failed: {stderr.decode().strip()}")
         return stdout.decode()
 
     async def init(self) -> None:
@@ -101,9 +99,7 @@ class ShadowGit:
 
         await self._run_git("add", "-A")
         await self._run_git("commit", "--allow-empty", "-m", f"savepoint: {ref}")
-        logger.debug(
-            "[shadow-git] committed savepoint '%s' (%d file(s))", ref, len(files)
-        )
+        logger.debug("[shadow-git] committed savepoint '%s' (%d file(s))", ref, len(files))
 
     async def restore(self, ref: str) -> list[FileSnapshot]:
         """Read saved snapshots back from the shadow repo.

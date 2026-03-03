@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import pytest
 from pathlib import Path
 
-from detent.checkpoint.savepoint import FileSnapshot, ShadowGit
+import pytest
+
 from detent.checkpoint.engine import CheckpointEngine
+from detent.checkpoint.savepoint import FileSnapshot, ShadowGit
 
 
 def test_file_snapshot_fields() -> None:

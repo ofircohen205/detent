@@ -22,9 +22,7 @@ class CheckpointEngine:
     def __init__(self, shadow_git_path: Path | None = None) -> None:
         self._snapshots: dict[str, list[FileSnapshot]] = {}
         self._lock = asyncio.Lock()
-        self._shadow: ShadowGit | None = (
-            ShadowGit(repo_path=shadow_git_path) if shadow_git_path is not None else None
-        )
+        self._shadow: ShadowGit | None = ShadowGit(repo_path=shadow_git_path) if shadow_git_path is not None else None
 
     async def savepoint(self, ref: str, files: list[str]) -> None:
         """Capture a snapshot of each file before a write operation.
@@ -49,9 +47,7 @@ class CheckpointEngine:
                     )
                 )
             else:
-                snapshots.append(
-                    FileSnapshot(path=path_str, content=None, existed=False, permissions=None)
-                )
+                snapshots.append(FileSnapshot(path=path_str, content=None, existed=False, permissions=None))
 
         async with self._lock:
             self._snapshots[ref] = snapshots
@@ -99,9 +95,7 @@ class CheckpointEngine:
                 if path.exists():
                     path.unlink()
 
-        logger.info(
-            "[checkpoint] rolled back to '%s' (%d file(s) restored)", ref, len(snapshots)
-        )
+        logger.info("[checkpoint] rolled back to '%s' (%d file(s) restored)", ref, len(snapshots))
 
     async def discard(self, ref: str) -> None:
         """Remove a savepoint from the registry.
