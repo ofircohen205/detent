@@ -6,7 +6,7 @@ import asyncio
 import pytest
 from pathlib import Path
 
-from detent.checkpoint.savepoint import FileSnapshot
+from detent.checkpoint.savepoint import FileSnapshot, ShadowGit
 from detent.checkpoint.engine import CheckpointEngine
 
 
@@ -202,3 +202,26 @@ async def test_rollback_creates_parent_dirs(tmp_path: Path) -> None:
 
     assert deep.exists()
     assert deep.read_bytes() == b"# deep\n"
+
+
+@pytest.mark.asyncio
+async def test_shadow_git_init_creates_repo(tmp_path: Path) -> None:
+    shadow = ShadowGit(repo_path=tmp_path / ".detent" / "shadow-git")
+    await shadow.init()
+    assert (tmp_path / ".detent" / "shadow-git" / ".git").is_dir()
+
+
+@pytest.mark.asyncio
+async def test_shadow_git_commit_stores_content(tmp_path: Path) -> None:
+    shadow = ShadowGit(repo_path=tmp_path / ".detent" / "shadow-git")
+    await shadow.init()
+
+    snaps = [
+        FileSnapshot(path="src/main.py", content=b'print("hello")\n', existed=True, permissions=0o644),
+    ]
+    await shadow.commit("chk_001", snaps)
+
+    snapshot_dir = tmp_path / ".detent" / "shadow-git" / "snapshots" / "chk_001"
+    assert snapshot_dir.is_dir()
+    assert (snapshot_dir / "meta.json").exists()
+    assert (snapshot_dir / "files" / "src" / "main.py").read_bytes() == b'print("hello")\n'
