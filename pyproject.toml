@@ -1,7 +1,72 @@
 [project]
 name = "detent"
 version = "0.1.0"
-description = "Add your description here"
+description = "A verification runtime that intercepts AI coding agent file writes, runs them through a configurable verification pipeline, and rolls back atomically on failure."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+license = "Apache-2.0"
+authors = [
+    { name = "Ofir Cohen", email = "ofircohen205@gmail.com" },
+]
+keywords = ["ai", "coding-agent", "verification", "rollback", "lint", "typecheck"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+dependencies = [
+    "aiohttp>=3.9,<4",
+    "pyyaml>=6.0,<7",
+    "pydantic>=2.0,<3",
+    "tree-sitter>=0.23,<1",
+    "tree-sitter-python>=0.23,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0,<9",
+    "pytest-asyncio>=0.24,<1",
+    "pytest-cov>=6.0,<7",
+    "ruff>=0.9,<1",
+    "mypy>=1.14,<2",
+    "types-PyYAML>=6.0",
+]
+
+[project.scripts]
+detent = "detent.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# ─── Tool Configuration ──────────────────────────────────────────────────────
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM", "TCH"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["TCH"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "unit: fast unit tests (no external deps)",
+    "integration: full pipeline tests (requires tools installed)",
+]
