@@ -1,8 +1,9 @@
 # Phase 2 — Checkpoint Engine
 
-> **Status:** ✅ Design approved — ready for implementation
-> **Depends on:** Phase 1  
+> **Status:** 🚧 In progress
+> **Depends on:** Phase 1
 > **Branch:** `feature/checkpoint-engine`
+> **Implementation plan:** [docs/plans/2026-03-03-phase-2-checkpoint-engine.md](../../plans/2026-03-03-phase-2-checkpoint-engine.md)
 
 ## Goal
 
