@@ -1,0 +1,57 @@
+# ─── .dockerignore ────────────────────────────────────────────────────────────
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Development tools / caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Git
+.git/
+.gitignore
+
+# Docker files (avoid inception)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI / GitHub
+.github/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project-specific
+tmp/
+tasks/
+.worktrees/
+
+# Docs (large, not needed at runtime)
+docs/
+
+# Test files (not needed in production image)
+tests/

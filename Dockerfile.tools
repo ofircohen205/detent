@@ -1,0 +1,44 @@
+# ─── Dockerfile.tools ─────────────────────────────────────────────────────────
+#
+# Sidecar image that provides all verification tools used by Detent's pipeline:
+#   - ruff        (Python linting)
+#   - mypy        (Python type checking)
+#   - pytest      (targeted test execution)
+#   - tree-sitter (syntax validation)
+#   - bandit      (security scanning, P1)
+#
+# This container is optional. Enable it in docker-compose.yml with:
+#   docker compose --profile tools up
+
+# syntax=docker/dockerfile:1
+
+FROM python:3.12-slim AS tools
+
+# Install uv for fast package installation
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+RUN groupadd -r detent && useradd -r -g detent detent
+
+WORKDIR /tools
+
+# Install verification tools globally (no project venv needed here)
+RUN uv pip install --system \
+    ruff \
+    mypy \
+    pytest \
+    pytest-asyncio \
+    tree-sitter \
+    bandit \
+    semgrep
+
+# Workspace mount point (project files to verify)
+RUN mkdir -p /workspace && chown detent:detent /workspace
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+USER detent
+WORKDIR /workspace
+
+# Default: keep the container alive for exec-based calls from the proxy
+CMD ["tail", "-f", "/dev/null"]

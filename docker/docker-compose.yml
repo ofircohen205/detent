@@ -1,0 +1,83 @@
+# ─── docker-compose.yml ───────────────────────────────────────────────────────
+#
+# Local development stack for Detent.
+#
+# Services:
+#   proxy   — Detent HTTP reverse proxy (Point 1 interception)
+#   tools   — Sidecar with ruff, mypy, pytest, tree-sitter pre-installed
+#             (used by the proxy to run verification stages)
+#
+# Usage:
+#   make compose-up          # build + start all services
+#   make compose-down        # stop all services
+#   make compose-logs        # tail logs
+#
+# Environment variables (override in a .env file):
+#   ANTHROPIC_BASE_URL   Automatically set to http://proxy:7070 for Claude Code
+#   OPENAI_BASE_URL      Automatically set to http://proxy:7070 for Cursor/Codex
+#   DETENT_LOG_LEVEL     DEBUG | INFO | WARNING | ERROR  (default: INFO)
+
+name: detent
+
+services:
+  # ── Detent HTTP Reverse Proxy ───────────────────────────────────────────────
+  proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: detent:latest
+    container_name: detent-proxy
+    restart: unless-stopped
+    ports:
+      - "${PROXY_PORT:-7070}:7070"
+    volumes:
+      # Mount config file from host so edits take effect on restart
+      - ./detent.yaml:/app/detent.yaml:ro
+    environment:
+      DETENT_CONFIG: /app/detent.yaml
+      DETENT_LOG_LEVEL: ${DETENT_LOG_LEVEL:-INFO}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:7070/healthz')",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    networks:
+      - detent-net
+
+  # ── Verification Tools Sidecar ──────────────────────────────────────────────
+  # A separate container that runs the language verification tools (ruff, mypy,
+  # pytest, tree-sitter binaries). The proxy delegates subprocess calls here so
+  # the proxy container itself stays slim.
+  #
+  # Comment out or remove this service if you want the proxy to run tools
+  # directly (requires tools installed in the proxy image).
+  tools:
+    build:
+      context: .
+      dockerfile: Dockerfile.tools
+    image: detent-tools:latest
+    container_name: detent-tools
+    restart: unless-stopped
+    volumes:
+      # Mount the workspace under /workspace so the tools can see project files
+      - ${WORKSPACE_PATH:-.}:/workspace:ro
+    environment:
+      DETENT_LOG_LEVEL: ${DETENT_LOG_LEVEL:-INFO}
+    networks:
+      - detent-net
+    profiles:
+      # Only start the tools sidecar when explicitly requested:
+      #   docker compose --profile tools up
+      - tools
+
+networks:
+  detent-net:
+    driver: bridge
