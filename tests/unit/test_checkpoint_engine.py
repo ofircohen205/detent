@@ -260,3 +260,29 @@ async def test_shadow_git_reset_removes_snapshot(tmp_path: Path) -> None:
 
     snapshot_dir = tmp_path / ".detent" / "shadow-git" / "snapshots" / "chk_001"
     assert not snapshot_dir.exists()
+
+
+@pytest.mark.asyncio
+async def test_checkpoint_engine_shadow_git_backup(tmp_path: Path) -> None:
+    shadow_path = tmp_path / ".detent" / "shadow-git"
+    target = tmp_path / "main.py"
+    target.write_bytes(b"# original\n")
+
+    engine = CheckpointEngine(shadow_git_path=shadow_path)
+    await engine.savepoint("chk_001", [str(target)])
+
+    assert (shadow_path / ".git").is_dir()
+    assert (shadow_path / "snapshots" / "chk_001" / "meta.json").exists()
+
+
+@pytest.mark.asyncio
+async def test_checkpoint_engine_discard_cleans_shadow(tmp_path: Path) -> None:
+    shadow_path = tmp_path / ".detent" / "shadow-git"
+    target = tmp_path / "main.py"
+    target.write_bytes(b"# x\n")
+
+    engine = CheckpointEngine(shadow_git_path=shadow_path)
+    await engine.savepoint("chk_001", [str(target)])
+    await engine.discard("chk_001")
+
+    assert not (shadow_path / "snapshots" / "chk_001").exists()

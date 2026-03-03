@@ -7,7 +7,7 @@ import logging
 import os
 from pathlib import Path
 
-from detent.checkpoint.savepoint import FileSnapshot
+from detent.checkpoint.savepoint import FileSnapshot, ShadowGit
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +19,12 @@ class CheckpointEngine:
     Pass shadow_git_path to enable durable backup across process restarts.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, shadow_git_path: Path | None = None) -> None:
         self._snapshots: dict[str, list[FileSnapshot]] = {}
         self._lock = asyncio.Lock()
+        self._shadow: ShadowGit | None = (
+            ShadowGit(repo_path=shadow_git_path) if shadow_git_path is not None else None
+        )
 
     async def savepoint(self, ref: str, files: list[str]) -> None:
         """Capture a snapshot of each file before a write operation.
@@ -52,6 +55,9 @@ class CheckpointEngine:
 
         async with self._lock:
             self._snapshots[ref] = snapshots
+
+        if self._shadow is not None:
+            await self._shadow.commit(ref, snapshots)
 
         logger.info("[checkpoint] savepoint '%s' captured %d file(s)", ref, len(snapshots))
 
@@ -107,4 +113,8 @@ class CheckpointEngine:
         """
         async with self._lock:
             self._snapshots.pop(ref, None)
+
+        if self._shadow is not None:
+            await self._shadow.reset(ref)
+
         logger.info("[checkpoint] discarded savepoint '%s'", ref)
