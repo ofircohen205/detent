@@ -1,0 +1,55 @@
+# ─── Detent Configuration ────────────────────────────────────────────────────
+#
+# This file configures the Detent verification runtime.
+# Place it in your project root as `detent.yaml` or set DETENT_CONFIG env var.
+#
+# All settings have sensible defaults — this file is optional.
+
+# Policy profile: strict | standard | permissive
+#   strict     — all stages enabled; any finding blocks the write
+#   standard   — P0 stages enabled; warnings do not block, errors do
+#   permissive — syntax only; all other stages as warnings
+policy: standard
+
+# Agent type (auto-detected by `detent init`; override if needed)
+# agent: claude-code
+
+# Proxy configuration
+proxy:
+  host: "127.0.0.1"
+  port: 7070
+
+# Verification pipeline stages (executed in order)
+stages:
+  - name: syntax
+    enabled: true
+
+  - name: lint
+    enabled: true
+
+  - name: typecheck
+    enabled: true
+    timeout: 30
+
+  - name: tests
+    enabled: true
+    timeout: 60
+
+  # Security scanning — P1, disabled by default in v0.1
+  # - name: security
+  #   enabled: false
+  #   tools: [bandit, semgrep]
+
+# Pipeline settings
+pipeline:
+  parallel: false    # Run stages in parallel (opt-in)
+  fail_fast: true    # Halt on first P0 stage failure
+
+# Logging
+log_level: INFO      # DEBUG | INFO | WARNING | ERROR
+
+# IPC control channel timeout (ms)
+ipc_timeout_ms: 4000
+
+# Fail-closed mode (set to true for enterprise enforcement)
+strict_mode: false
