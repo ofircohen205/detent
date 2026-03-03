@@ -225,3 +225,38 @@ async def test_shadow_git_commit_stores_content(tmp_path: Path) -> None:
     assert snapshot_dir.is_dir()
     assert (snapshot_dir / "meta.json").exists()
     assert (snapshot_dir / "files" / "src" / "main.py").read_bytes() == b'print("hello")\n'
+
+
+@pytest.mark.asyncio
+async def test_shadow_git_restore_roundtrip(tmp_path: Path) -> None:
+    shadow = ShadowGit(repo_path=tmp_path / ".detent" / "shadow-git")
+    await shadow.init()
+
+    original = [
+        FileSnapshot(path="src/main.py", content=b'print("hello")\n', existed=True, permissions=0o644),
+        FileSnapshot(path="src/missing.py", content=None, existed=False, permissions=None),
+    ]
+    await shadow.commit("chk_001", original)
+
+    restored = await shadow.restore("chk_001")
+
+    assert len(restored) == 2
+    assert restored[0].path == "src/main.py"
+    assert restored[0].content == b'print("hello")\n'
+    assert restored[0].existed is True
+    assert restored[1].path == "src/missing.py"
+    assert restored[1].content is None
+    assert restored[1].existed is False
+
+
+@pytest.mark.asyncio
+async def test_shadow_git_reset_removes_snapshot(tmp_path: Path) -> None:
+    shadow = ShadowGit(repo_path=tmp_path / ".detent" / "shadow-git")
+    await shadow.init()
+
+    snaps = [FileSnapshot(path="src/a.py", content=b"a\n", existed=True, permissions=0o644)]
+    await shadow.commit("chk_001", snaps)
+    await shadow.reset("chk_001")
+
+    snapshot_dir = tmp_path / ".detent" / "shadow-git" / "snapshots" / "chk_001"
+    assert not snapshot_dir.exists()

@@ -104,3 +104,58 @@ class ShadowGit:
         logger.debug(
             "[shadow-git] committed savepoint '%s' (%d file(s))", ref, len(files)
         )
+
+    async def restore(self, ref: str) -> list[FileSnapshot]:
+        """Read saved snapshots back from the shadow repo.
+
+        Used for crash recovery when in-memory state is lost.
+
+        Args:
+            ref: Savepoint reference to restore.
+
+        Returns:
+            List of FileSnapshot objects as they were at savepoint time.
+
+        Raises:
+            FileNotFoundError: If no snapshot exists for ref.
+        """
+        snapshot_dir = self._repo / "snapshots" / ref
+        meta_file = snapshot_dir / "meta.json"
+
+        if not meta_file.exists():
+            raise FileNotFoundError(f"No shadow-git snapshot for ref '{ref}'")
+
+        meta = json.loads(meta_file.read_text())
+        files_dir = snapshot_dir / "files"
+        snapshots = []
+
+        for entry in meta:
+            content: bytes | None = None
+            if entry["has_content"]:
+                blob = files_dir / entry["path"].lstrip("/")
+                content = blob.read_bytes() if blob.exists() else None
+            snapshots.append(
+                FileSnapshot(
+                    path=entry["path"],
+                    content=content,
+                    existed=entry["existed"],
+                    permissions=entry["permissions"],
+                )
+            )
+
+        return snapshots
+
+    async def reset(self, ref: str) -> None:
+        """Remove a savepoint's snapshot directory from the shadow repo.
+
+        Args:
+            ref: Savepoint reference to delete.
+        """
+        import shutil
+
+        snapshot_dir = self._repo / "snapshots" / ref
+        if snapshot_dir.exists():
+            shutil.rmtree(snapshot_dir)
+            await self._run_git("add", "-A")
+            await self._run_git("commit", "--allow-empty", "-m", f"discard: {ref}")
+            logger.debug("[shadow-git] removed snapshot '%s'", ref)
