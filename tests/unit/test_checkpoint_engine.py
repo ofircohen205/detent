@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import pytest
 from pathlib import Path
 
@@ -135,3 +136,69 @@ async def test_discard_removes_savepoint(tmp_path: Path) -> None:
 async def test_discard_unknown_ref_is_noop() -> None:
     engine = CheckpointEngine()
     await engine.discard("chk_ghost")  # must not raise
+
+
+@pytest.mark.asyncio
+async def test_multiple_savepoints_partial_rollback(tmp_path: Path) -> None:
+    target = tmp_path / "main.py"
+    v1, v2, v3 = b"# v1\n", b"# v2\n", b"# v3\n"
+
+    target.write_bytes(v1)
+    engine = CheckpointEngine()
+    await engine.savepoint("chk_001", [str(target)])
+
+    target.write_bytes(v2)
+    await engine.savepoint("chk_002", [str(target)])
+
+    target.write_bytes(v3)
+    await engine.rollback("chk_002")
+
+    assert target.read_bytes() == v2
+    assert "chk_001" in await engine.list_savepoints()  # unaffected
+
+
+@pytest.mark.asyncio
+async def test_concurrent_savepoints(tmp_path: Path) -> None:
+    engine = CheckpointEngine()
+    paths = []
+    for i in range(5):
+        f = tmp_path / f"file_{i}.py"
+        f.write_bytes(f"# file {i}\n".encode())
+        paths.append(str(f))
+
+    refs = [f"chk_{i:03d}" for i in range(5)]
+    await asyncio.gather(*[engine.savepoint(refs[i], [paths[i]]) for i in range(5)])
+
+    active = await engine.list_savepoints()
+    assert set(refs) == set(active)
+
+
+@pytest.mark.asyncio
+async def test_no_tmp_files_left_after_rollback(tmp_path: Path) -> None:
+    target = tmp_path / "main.py"
+    target.write_bytes(b"# original\n")
+
+    engine = CheckpointEngine()
+    await engine.savepoint("chk_001", [str(target)])
+    target.write_bytes(b"# modified\n")
+    await engine.rollback("chk_001")
+
+    assert list(tmp_path.glob("*.detent-tmp")) == []
+
+
+@pytest.mark.asyncio
+async def test_rollback_creates_parent_dirs(tmp_path: Path) -> None:
+    deep = tmp_path / "a" / "b" / "c" / "deep.py"
+    deep.parent.mkdir(parents=True)
+    deep.write_bytes(b"# deep\n")
+
+    engine = CheckpointEngine()
+    await engine.savepoint("chk_001", [str(deep)])
+
+    deep.unlink()
+    deep.parent.rmdir()
+
+    await engine.rollback("chk_001")  # must recreate parent dirs
+
+    assert deep.exists()
+    assert deep.read_bytes() == b"# deep\n"
