@@ -65,3 +65,73 @@ async def test_savepoint_nonexistent_file(tmp_path: Path) -> None:
 async def test_list_savepoints_empty() -> None:
     engine = CheckpointEngine()
     assert await engine.list_savepoints() == []
+
+
+@pytest.mark.asyncio
+async def test_rollback_restores_modified_file(tmp_path: Path) -> None:
+    target = tmp_path / "main.py"
+    original = b'print("original")\n'
+    target.write_bytes(original)
+
+    engine = CheckpointEngine()
+    await engine.savepoint("chk_001", [str(target)])
+
+    target.write_bytes(b'print("modified")\n')
+    await engine.rollback("chk_001")
+
+    assert target.read_bytes() == original
+
+
+@pytest.mark.asyncio
+async def test_rollback_deletes_new_files(tmp_path: Path) -> None:
+    new_file = tmp_path / "new.py"  # does not exist at savepoint time
+
+    engine = CheckpointEngine()
+    await engine.savepoint("chk_001", [str(new_file)])
+
+    new_file.write_bytes(b'print("new")\n')  # created after savepoint
+    await engine.rollback("chk_001")
+
+    assert not new_file.exists()
+
+
+@pytest.mark.asyncio
+async def test_rollback_restores_deleted_files(tmp_path: Path) -> None:
+    target = tmp_path / "main.py"
+    original = b'print("original")\n'
+    target.write_bytes(original)
+
+    engine = CheckpointEngine()
+    await engine.savepoint("chk_001", [str(target)])
+
+    target.unlink()  # deleted after savepoint
+    await engine.rollback("chk_001")
+
+    assert target.exists()
+    assert target.read_bytes() == original
+
+
+@pytest.mark.asyncio
+async def test_rollback_unknown_ref_raises() -> None:
+    engine = CheckpointEngine()
+    with pytest.raises(KeyError, match="chk_missing"):
+        await engine.rollback("chk_missing")
+
+
+@pytest.mark.asyncio
+async def test_discard_removes_savepoint(tmp_path: Path) -> None:
+    target = tmp_path / "main.py"
+    target.write_bytes(b"x\n")
+
+    engine = CheckpointEngine()
+    await engine.savepoint("chk_001", [str(target)])
+    assert "chk_001" in await engine.list_savepoints()
+
+    await engine.discard("chk_001")
+    assert "chk_001" not in await engine.list_savepoints()
+
+
+@pytest.mark.asyncio
+async def test_discard_unknown_ref_is_noop() -> None:
+    engine = CheckpointEngine()
+    await engine.discard("chk_ghost")  # must not raise

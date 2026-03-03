@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from pathlib import Path
 
 from detent.checkpoint.savepoint import FileSnapshot
@@ -58,3 +59,52 @@ class CheckpointEngine:
         """Return the refs of all active savepoints."""
         async with self._lock:
             return list(self._snapshots.keys())
+
+    async def rollback(self, ref: str) -> None:
+        """Restore all files to their state at savepoint time.
+
+        - Files that existed at savepoint: content atomically restored via os.replace().
+        - Files that did not exist at savepoint: deleted if present now.
+
+        Args:
+            ref: Savepoint ref to roll back to.
+
+        Raises:
+            KeyError: If ref has no recorded savepoint.
+        """
+        async with self._lock:
+            snapshots = self._snapshots.get(ref)
+
+        if snapshots is None:
+            raise KeyError(f"No savepoint found for ref '{ref}'")
+
+        for snap in snapshots:
+            path = Path(snap.path)
+            if snap.existed:
+                # Atomically restore: write to sibling tmp, then os.replace
+                tmp = path.with_suffix(path.suffix + ".detent-tmp")
+                tmp.parent.mkdir(parents=True, exist_ok=True)
+                tmp.write_bytes(snap.content)  # type: ignore[arg-type]
+                os.replace(tmp, path)
+                if snap.permissions is not None:
+                    os.chmod(path, snap.permissions)
+            else:
+                # File was created after savepoint — delete it
+                if path.exists():
+                    path.unlink()
+
+        logger.info(
+            "[checkpoint] rolled back to '%s' (%d file(s) restored)", ref, len(snapshots)
+        )
+
+    async def discard(self, ref: str) -> None:
+        """Remove a savepoint from the registry.
+
+        No-op if ref does not exist.
+
+        Args:
+            ref: Savepoint ref to discard.
+        """
+        async with self._lock:
+            self._snapshots.pop(ref, None)
+        logger.info("[checkpoint] discarded savepoint '%s'", ref)
