@@ -111,3 +111,47 @@ def test_context_clamps_at_file_boundaries():
     ef = feedback.findings[0]
     assert ef.context_start_line == 1
     assert ef.context_lines == ["line1", "line2", "line3"]  # clamped, only 3 lines exist
+
+
+def test_summary_all_passed():
+    result = _make_result(findings=[], passed=True)
+    feedback = FeedbackSynthesizer().synthesize(result, _make_action())
+    assert "passed" in feedback.summary.lower()
+    assert "src/main.py" in feedback.summary
+
+
+def test_summary_blocked_with_errors():
+    result = _make_result(
+        findings=[
+            Finding(severity="error", file="f.py", message="err", stage="syntax"),
+            Finding(severity="error", file="f.py", message="err2", stage="syntax"),
+        ]
+    )
+    feedback = FeedbackSynthesizer().synthesize(result, _make_action())
+    assert feedback.status == "blocked"
+    assert "2 error" in feedback.summary
+    assert "blocked" in feedback.summary.lower()
+
+
+def test_summary_warning_only():
+    result = _make_result(
+        findings=[
+            Finding(severity="warning", file="f.py", message="w", stage="lint")
+        ],
+        passed=True,
+    )
+    feedback = FeedbackSynthesizer().synthesize(result, _make_action())
+    assert feedback.status == "warning"
+    assert "1 warning" in feedback.summary
+
+
+def test_summary_mixed_errors_and_warnings():
+    result = _make_result(
+        findings=[
+            Finding(severity="error", file="f.py", message="e", stage="syntax"),
+            Finding(severity="warning", file="f.py", message="w", stage="lint"),
+        ]
+    )
+    feedback = FeedbackSynthesizer().synthesize(result, _make_action())
+    assert "1 error" in feedback.summary
+    assert "1 warning" in feedback.summary
