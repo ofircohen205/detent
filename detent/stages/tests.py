@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -64,6 +65,8 @@ class TestsStage(VerificationStage):
         logger.debug("[tests] running pytest on %s", [str(f) for f in test_files])
 
         proc = await asyncio.create_subprocess_exec(
+            sys.executable,
+            "-m",
             "pytest",
             *[str(f) for f in test_files],
             "--tb=short",
@@ -72,12 +75,14 @@ class TestsStage(VerificationStage):
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, _ = await proc.communicate()
+        stdout, stderr = await proc.communicate()
 
         duration_ms = (time.perf_counter() - start) * 1000
         output = stdout.decode("utf-8", errors="replace")
 
         passed = proc.returncode in _PASSING_EXIT_CODES
+        if not passed and stderr:
+            logger.debug("[tests] pytest stderr: %s", stderr.decode("utf-8", errors="replace").strip())
         findings = [] if passed else self._parse_failures(output, file_path)
 
         return VerificationResult(
