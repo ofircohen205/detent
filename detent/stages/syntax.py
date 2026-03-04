@@ -67,7 +67,6 @@ class SyntaxStage(VerificationStage):
         self._collect_errors(tree.root_node, file_path, findings)
 
         duration_ms = (time.perf_counter() - start) * 1000
-        logger.info("[syntax] %s — %d finding(s) in %.1f ms", file_path, len(findings), duration_ms)
 
         return VerificationResult(
             stage=self.name,
@@ -77,27 +76,31 @@ class SyntaxStage(VerificationStage):
             metadata={"node_count": tree.root_node.child_count},
         )
 
-    def _collect_errors(self, node: Node, file_path: str, findings: list[Finding]) -> None:
-        """Recursively walk the AST and collect ERROR / MISSING nodes.
+    def _collect_errors(self, root: Node, file_path: str, findings: list[Finding]) -> None:
+        """Walk the AST iteratively and collect ERROR / MISSING nodes.
+
+        Uses an explicit stack instead of recursion to avoid hitting Python's
+        recursion limit on very deep or large ASTs from AI-generated code.
 
         Uses node.is_error and node.is_missing (the correct tree-sitter API) rather than
         comparing node.type to the strings "ERROR" or "MISSING". A missing token has its
         expected type (e.g. ')') with is_missing=True, not type="MISSING".
         """
-        if node.is_error or node.is_missing:
-            row, col = node.start_point
-            kind = "token (missing)" if node.is_missing else "token"
-            findings.append(
-                Finding(
-                    severity="error",
-                    file=file_path,
-                    line=row + 1,  # tree-sitter is 0-indexed; Finding uses 1-indexed
-                    column=col + 1,
-                    message=f"Syntax error: unexpected {kind}",
-                    code="syntax-error",
-                    stage=self.name,
-                    fix_suggestion=None,
+        stack = [root]
+        while stack:
+            node = stack.pop()
+            if node.is_error or node.is_missing:
+                row, col = node.start_point
+                findings.append(
+                    Finding(
+                        severity="error",
+                        file=file_path,
+                        line=row + 1,  # tree-sitter is 0-indexed; Finding uses 1-indexed
+                        column=col + 1,
+                        message=f"Syntax error: unexpected {'token' if node.is_error and not node.is_missing else 'token (missing)'}",
+                        code="syntax-error",
+                        stage=self.name,
+                        fix_suggestion=None,
+                    )
                 )
-            )
-        for child in node.children:
-            self._collect_errors(child, file_path, findings)
+            stack.extend(node.children)
