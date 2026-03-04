@@ -35,7 +35,7 @@ class LintStage(VerificationStage):
 
     def supports_language(self, lang: str) -> bool:
         """Return True only for Python."""
-        return lang in {"python", "py"}
+        return lang == "python"
 
     async def _run(self, action: AgentAction) -> VerificationResult:
         """Lint content using ruff check via stdin."""
