@@ -44,7 +44,7 @@ def _make_action(content: str = "x = 1\n") -> AgentAction:
     )
 
 
-def _make_result(findings: list[Finding], passed: bool = False) -> VerificationResult:
+def _make_result(findings: list[Finding], passed: bool = True) -> VerificationResult:
     return VerificationResult(
         stage="pipeline",
         passed=passed,
