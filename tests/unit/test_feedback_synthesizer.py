@@ -64,3 +64,50 @@ def test_findings_sorted_by_severity():
     feedback = FeedbackSynthesizer().synthesize(result, _make_action())
     severities = [f.severity for f in feedback.findings]
     assert severities == ["error", "warning", "info"]
+
+
+def test_error_finding_gets_context_lines():
+    content = "\n".join(f"line{i}" for i in range(1, 12))  # line1..line11
+    result = _make_result(
+        findings=[
+            Finding(severity="error", file="f.py", line=6, message="err", stage="syntax")
+        ]
+    )
+    feedback = FeedbackSynthesizer().synthesize(result, _make_action(content))
+    ef = feedback.findings[0]
+    # ±3 around line 6 → lines 3..9
+    assert ef.context_start_line == 3
+    assert ef.context_lines == ["line3", "line4", "line5", "line6", "line7", "line8", "line9"]
+
+
+def test_warning_finding_gets_no_context():
+    result = _make_result(
+        findings=[
+            Finding(severity="warning", file="f.py", line=5, message="w", stage="lint")
+        ],
+        passed=True,
+    )
+    feedback = FeedbackSynthesizer().synthesize(result, _make_action())
+    assert feedback.findings[0].context_lines == []
+    assert feedback.findings[0].context_start_line is None
+
+
+def test_error_finding_without_line_gets_no_context():
+    result = _make_result(
+        findings=[Finding(severity="error", file="f.py", message="err", stage="syntax")]
+    )
+    feedback = FeedbackSynthesizer().synthesize(result, _make_action())
+    assert feedback.findings[0].context_lines == []
+
+
+def test_context_clamps_at_file_boundaries():
+    content = "line1\nline2\nline3"
+    result = _make_result(
+        findings=[
+            Finding(severity="error", file="f.py", line=1, message="err", stage="syntax")
+        ]
+    )
+    feedback = FeedbackSynthesizer().synthesize(result, _make_action(content))
+    ef = feedback.findings[0]
+    assert ef.context_start_line == 1
+    assert ef.context_lines == ["line1", "line2", "line3"]  # clamped, only 3 lines exist
