@@ -2,5 +2,6 @@
 
 from detent.stages.base import VerificationStage
 from detent.stages.lint import LintStage
+from detent.stages.typecheck import TypecheckStage
 
-__all__ = ["VerificationStage", "LintStage"]
+__all__ = ["VerificationStage", "LintStage", "TypecheckStage"]
