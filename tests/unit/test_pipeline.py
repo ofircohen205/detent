@@ -11,9 +11,7 @@ from detent.pipeline.pipeline import VerificationPipeline, _detect_language
 from detent.pipeline.result import Finding, VerificationResult
 from detent.schema import AgentAction
 from detent.stages.base import VerificationStage
-
 from tests.conftest import make_action
-
 
 # ─── Mock stage helpers ───────────────────────────────────────────────────────
 
