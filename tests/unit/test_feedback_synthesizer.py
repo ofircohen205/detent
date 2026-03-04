@@ -155,3 +155,48 @@ def test_summary_mixed_errors_and_warnings():
     feedback = FeedbackSynthesizer().synthesize(result, _make_action())
     assert "1 error" in feedback.summary
     assert "1 warning" in feedback.summary
+
+
+def test_status_blocked_when_errors():
+    result = _make_result(
+        findings=[Finding(severity="error", file="f.py", message="e", stage="syntax")]
+    )
+    feedback = FeedbackSynthesizer().synthesize(result, _make_action())
+    assert feedback.status == "blocked"
+
+
+def test_status_warning_when_only_warnings():
+    result = _make_result(
+        findings=[Finding(severity="warning", file="f.py", message="w", stage="lint")],
+        passed=True,
+    )
+    feedback = FeedbackSynthesizer().synthesize(result, _make_action())
+    assert feedback.status == "warning"
+
+
+def test_status_passed_when_no_findings():
+    result = _make_result(findings=[], passed=True)
+    feedback = FeedbackSynthesizer().synthesize(result, _make_action())
+    assert feedback.status == "passed"
+
+
+def test_rollback_applied_default_false():
+    result = _make_result(findings=[], passed=True)
+    feedback = FeedbackSynthesizer().synthesize(result, _make_action())
+    assert feedback.rollback_applied is False
+
+
+def test_checkpoint_ref_propagated():
+    action = AgentAction(
+        action_type=ActionType.FILE_WRITE,
+        agent="test",
+        tool_name="Write",
+        tool_input={"file_path": "f.py", "content": "x=1"},
+        tool_call_id="tc_002",
+        session_id="sess_002",
+        checkpoint_ref="chk_my_ref",
+        risk_level=RiskLevel.LOW,
+    )
+    result = _make_result(findings=[], passed=True)
+    feedback = FeedbackSynthesizer().synthesize(result, action)
+    assert feedback.checkpoint == "chk_my_ref"
