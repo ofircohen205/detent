@@ -1,5 +1,6 @@
 """Verification stages — syntax, lint, typecheck, tests."""
 
 from detent.stages.base import VerificationStage
+from detent.stages.lint import LintStage
 
-__all__ = ["VerificationStage"]
+__all__ = ["VerificationStage", "LintStage"]
