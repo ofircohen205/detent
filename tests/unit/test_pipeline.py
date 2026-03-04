@@ -212,9 +212,7 @@ async def test_parallel_mode_runs_all_stages():
     s1 = MockStage("syntax")
     s2 = MockStage("lint")
     s3 = MockStage("typecheck")
-    pipeline = VerificationPipeline(
-        stages=[s1, s2, s3], config=make_pipeline_config(parallel=True)
-    )
+    pipeline = VerificationPipeline(stages=[s1, s2, s3], config=make_pipeline_config(parallel=True))
     result = await pipeline.run(make_action())
     assert result.passed
     assert s1.call_count == 1
@@ -225,9 +223,7 @@ async def test_parallel_mode_runs_all_stages():
 async def test_parallel_all_pass_aggregates_findings():
     s1 = MockStage("syntax", findings=[make_warning_finding("syntax")])
     s2 = MockStage("lint", findings=[make_warning_finding("lint")])
-    pipeline = VerificationPipeline(
-        stages=[s1, s2], config=make_pipeline_config(parallel=True, fail_fast=False)
-    )
+    pipeline = VerificationPipeline(stages=[s1, s2], config=make_pipeline_config(parallel=True, fail_fast=False))
     result = await pipeline.run(make_action())
     assert result.passed
     assert len(result.findings) == 2
