@@ -22,11 +22,16 @@ class VerificationStage(ABC):
     exception handling so a stage crash never propagates to the pipeline.
     """
 
-    name: str
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """The stage name, e.g. 'syntax', 'lint', 'typecheck', 'tests'."""
+        ...
 
     async def run(self, action: AgentAction) -> VerificationResult:
         """Execute the stage, catching all exceptions."""
         start = time.perf_counter()
+        logger.debug("[%s] starting on %s", self.name, action.file_path)
         try:
             result = await self._run(action)
         except Exception as exc:
@@ -50,6 +55,13 @@ class VerificationStage(ABC):
                 duration_ms=duration_ms,
                 metadata={"error": str(exc)},
             )
+        logger.info(
+            "[%s] %s — %d finding(s) in %.1f ms",
+            self.name,
+            action.file_path,
+            len(result.findings),
+            result.duration_ms,
+        )
         return result
 
     @abstractmethod
