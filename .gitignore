@@ -52,3 +52,16 @@ Thumbs.db
 
 # Tmp
 tmp/
+
+# Test / build caches
+.mypy_cache/
+.ruff_cache/
+
+# Docker
+.env
+
+# DOCX
+*.docx
+
+# Plans
+docs/plans/
