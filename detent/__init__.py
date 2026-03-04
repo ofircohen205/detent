@@ -8,8 +8,23 @@ from __future__ import annotations
 
 __version__ = "0.1.0"
 
-# Public SDK exports will be available once the corresponding modules
-# are implemented. For now, we define __all__ for documentation purposes.
+# Pipeline result models
+from detent.pipeline.result import Finding, VerificationResult
+
+# Verification stages
+from detent.stages.base import VerificationStage
+from detent.stages.lint import LintStage
+from detent.stages.syntax import SyntaxStage
+from detent.stages.tests import TestsStage
+from detent.stages.typecheck import TypecheckStage
+
 __all__ = [
     "__version__",
+    "Finding",
+    "LintStage",
+    "SyntaxStage",
+    "TestsStage",
+    "TypecheckStage",
+    "VerificationResult",
+    "VerificationStage",
 ]
