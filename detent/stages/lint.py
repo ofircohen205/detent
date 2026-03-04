@@ -11,7 +11,7 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from detent.schema import AgentAction
@@ -97,7 +97,11 @@ class LintStage(VerificationStage):
             )
 
         raw_output = stdout.decode("utf-8", errors="replace").strip()
-        raw_findings: list[dict[str, Any]] = json.loads(raw_output) if raw_output else []
+        try:
+            raw_findings: list[dict[str, Any]] = json.loads(raw_output) if raw_output else []
+        except json.JSONDecodeError:
+            logger.warning("[lint] ruff output was not valid JSON: %s", raw_output[:200])
+            raw_findings = []
         findings = [self._parse_finding(f) for f in raw_findings]
 
         return VerificationResult(
@@ -111,13 +115,23 @@ class LintStage(VerificationStage):
     def _parse_finding(self, raw: dict[str, Any]) -> Finding:
         """Convert a single Ruff JSON finding to a Finding object."""
         location = raw.get("location", {})
+        code = raw.get("code") or ""
+        # Map Ruff code prefix to Finding severity:
+        # W = pycodestyle warnings, I = isort (informational)
+        # Everything else (E, F, B, N, A, SIM, UP, TCH...) = error
+        if code.startswith("W"):
+            severity: Literal["error", "warning", "info"] = "warning"
+        elif code.startswith("I"):
+            severity = "info"
+        else:
+            severity = "error"
         return Finding(
-            severity="error",
+            severity=severity,
             file=raw.get("filename", ""),
             line=location.get("row"),
             column=location.get("column"),
             message=raw.get("message", ""),
-            code=raw.get("code"),
+            code=code or None,
             stage=self.name,
             fix_suggestion=None,
         )
