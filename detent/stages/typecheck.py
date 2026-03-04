@@ -66,10 +66,12 @@ class TypecheckStage(VerificationStage):
                 metadata={"skipped": True, "reason": f"Unsupported extension: {ext}"},
             )
 
+        returncode: int | None = None
         tmp_fd, tmp_path = tempfile.mkstemp(suffix=".py")
         try:
             with os.fdopen(tmp_fd, "w") as f:
                 f.write(content)
+            tmp_fd = -1  # fd is now owned by the file object; don't close again
 
             logger.debug("[typecheck] running mypy on %s (temp: %s)", file_path, tmp_path)
 
@@ -83,8 +85,12 @@ class TypecheckStage(VerificationStage):
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, _ = await proc.communicate()
+            returncode = proc.returncode
 
         finally:
+            if tmp_fd != -1:
+                with contextlib.suppress(OSError):
+                    os.close(tmp_fd)  # only if fdopen never took ownership
             with contextlib.suppress(OSError):
                 os.unlink(tmp_path)
 
@@ -110,7 +116,7 @@ class TypecheckStage(VerificationStage):
             passed=len(findings) == 0,
             findings=findings,
             duration_ms=duration_ms,
-            metadata={"returncode": proc.returncode},
+            metadata={"returncode": returncode},
         )
 
     def _parse_finding(self, raw: dict[str, Any], original_path: str) -> Finding:
