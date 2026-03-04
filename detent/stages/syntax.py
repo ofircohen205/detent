@@ -1,0 +1,103 @@
+"""SyntaxStage — tree-sitter Python syntax validation.
+
+Parses content in-memory. No temp files, no subprocess — fast.
+Reports ERROR and MISSING nodes as findings with line/column numbers.
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+import tree_sitter_python as tspython
+from tree_sitter import Language, Parser
+
+from detent.pipeline.result import Finding, VerificationResult
+from detent.stages.base import VerificationStage
+
+if TYPE_CHECKING:
+    from tree_sitter import Node
+
+    from detent.schema import AgentAction
+
+logger = logging.getLogger(__name__)
+
+_PY_LANGUAGE = Language(tspython.language())
+_SUPPORTED_EXTENSIONS = frozenset({".py"})
+
+
+class SyntaxStage(VerificationStage):
+    """Validates Python syntax using tree-sitter.
+
+    Parses proposed content in-memory. Finds all ERROR and MISSING nodes
+    in the AST and reports them as error Findings.
+    """
+
+    name = "syntax"
+
+    def supports_language(self, lang: str) -> bool:
+        """Return True only for Python."""
+        return lang in {"python", "py"}
+
+    async def _run(self, action: AgentAction) -> VerificationResult:
+        """Parse proposed content and return any syntax error findings."""
+        start = time.perf_counter()
+
+        file_path = action.file_path or ""
+        content = action.content or ""
+
+        ext = Path(file_path).suffix.lower()
+        if ext not in _SUPPORTED_EXTENSIONS:
+            duration_ms = (time.perf_counter() - start) * 1000
+            logger.debug("[syntax] skipping unsupported extension: %s", ext)
+            return VerificationResult(
+                stage=self.name,
+                passed=True,
+                findings=[],
+                duration_ms=duration_ms,
+                metadata={"skipped": True, "reason": f"Unsupported extension: {ext}"},
+            )
+
+        parser = Parser(_PY_LANGUAGE)
+        tree = parser.parse(content.encode("utf-8"))
+
+        findings: list[Finding] = []
+        self._collect_errors(tree.root_node, file_path, findings)
+
+        duration_ms = (time.perf_counter() - start) * 1000
+        logger.info("[syntax] %s — %d finding(s) in %.1f ms", file_path, len(findings), duration_ms)
+
+        return VerificationResult(
+            stage=self.name,
+            passed=len(findings) == 0,
+            findings=findings,
+            duration_ms=duration_ms,
+            metadata={"node_count": tree.root_node.child_count},
+        )
+
+    def _collect_errors(self, node: Node, file_path: str, findings: list[Finding]) -> None:
+        """Recursively walk the AST and collect ERROR / MISSING nodes.
+
+        Uses node.is_error and node.is_missing (the correct tree-sitter API) rather than
+        comparing node.type to the strings "ERROR" or "MISSING". A missing token has its
+        expected type (e.g. ')') with is_missing=True, not type="MISSING".
+        """
+        if node.is_error or node.is_missing:
+            row, col = node.start_point
+            kind = "token (missing)" if node.is_missing else "token"
+            findings.append(
+                Finding(
+                    severity="error",
+                    file=file_path,
+                    line=row + 1,  # tree-sitter is 0-indexed; Finding uses 1-indexed
+                    column=col + 1,
+                    message=f"Syntax error: unexpected {kind}",
+                    code="syntax-error",
+                    stage=self.name,
+                    fix_suggestion=None,
+                )
+            )
+        for child in node.children:
+            self._collect_errors(child, file_path, findings)
