@@ -200,3 +200,10 @@ def test_checkpoint_ref_propagated():
     result = _make_result(findings=[], passed=True)
     feedback = FeedbackSynthesizer().synthesize(result, action)
     assert feedback.checkpoint == "chk_my_ref"
+
+
+def test_importable_from_detent_feedback():
+    from detent.feedback import FeedbackSynthesizer, StructuredFeedback  # noqa: F401
+
+    assert FeedbackSynthesizer is not None
+    assert StructuredFeedback is not None
