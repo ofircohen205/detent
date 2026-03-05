@@ -11,7 +11,7 @@
 | [2](./phase-2-checkpoint-engine.md)     | Checkpoint Engine     | ✅ Done | In-memory SAVEPOINTs + shadow git        |
 | [3](./phase-3-verification-stages.md)   | Verification Stages   | ✅ Done | syntax, lint, typecheck, tests           |
 | [4](./phase-4-verification-pipeline.md) | Verification Pipeline | ⏳      | Stage orchestration + result aggregation |
-| [5](./phase-5-feedback-synthesis.md)    | Feedback Synthesis    | ⏳      | LLM-optimized structured feedback        |
+| [5](./phase-5-feedback-synthesis.md)    | Feedback Synthesis    | ✅ Done | LLM-optimized structured feedback        |
 | [6](./phase-6-ipc-http-proxy.md)        | IPC + HTTP Proxy      | ⏳      | Unix socket IPC + aiohttp reverse proxy  |
 | [7](./phase-7-agent-adapters.md)        | Agent Adapters        | ⏳      | Claude Code + LangGraph adapters         |
 | [8](./phase-8-cli-sdk.md)               | CLI + SDK             | ⏳      | CLI commands + public Python SDK         |
