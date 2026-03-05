@@ -86,14 +86,10 @@ class FeedbackSynthesizer:
             findings=enriched,
             rollback_applied=False,
         )
-        logger.info(
-            "[feedback] status=%s, %d enriched finding(s)", status, len(enriched)
-        )
+        logger.info("[feedback] status=%s, %d enriched finding(s)", status, len(enriched))
         return feedback
 
-    def _determine_status(
-        self, result: VerificationResult
-    ) -> Literal["blocked", "passed", "warning"]:
+    def _determine_status(self, result: VerificationResult) -> Literal["blocked", "passed", "warning"]:
         if result.has_errors:
             return "blocked"
         if any(f.severity == "warning" for f in result.findings):
@@ -104,9 +100,7 @@ class FeedbackSynthesizer:
         context_lines: list[str] = []
         context_start_line: int | None = None
         if finding.severity == "error" and finding.line is not None and action.content:
-            context_lines, context_start_line = _extract_context(
-                action.content, finding.line
-            )
+            context_lines, context_start_line = _extract_context(action.content, finding.line)
         return EnrichedFinding(
             severity=finding.severity,
             file=finding.file,
@@ -131,20 +125,12 @@ class FeedbackSynthesizer:
         parts: list[str] = []
         if errors:
             stages = sorted({f.stage for f in errors})
-            parts.append(
-                f"{len(errors)} error(s) found in {_join_stages(stages)} stage(s)"
-            )
+            parts.append(f"{len(errors)} error(s) found in {_join_stages(stages)} stage(s)")
         if warnings:
             stages = sorted({f.stage for f in warnings})
-            parts.append(
-                f"{len(warnings)} warning(s) from {_join_stages(stages)} stage(s)"
-            )
+            parts.append(f"{len(warnings)} warning(s) from {_join_stages(stages)} stage(s)")
 
-        verdict = (
-            "File write blocked."
-            if result.has_errors
-            else "File write allowed with warnings."
-        )
+        verdict = "File write blocked." if result.has_errors else "File write allowed with warnings."
         return f"`{file_path}`: {'; '.join(parts)}. {verdict}"
 
 
