@@ -11,7 +11,7 @@ import logging
 import os
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import click
@@ -22,10 +22,12 @@ from rich.table import Table
 
 from detent import __version__
 from detent.checkpoint.engine import CheckpointEngine
-from detent.config import DetentConfig, PipelineConfig, StageConfig
+from detent.config import DetentConfig, PipelineConfig, ProxyConfig, StageConfig
 from detent.pipeline.pipeline import VerificationPipeline
-from detent.pipeline.result import VerificationResult
 from detent.schema import ActionType, AgentAction, RiskLevel
+
+if TYPE_CHECKING:
+    from detent.pipeline.result import VerificationResult
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -52,7 +54,7 @@ class SessionManager:
 
         if session_file.exists():
             try:
-                return json.loads(session_file.read_text())
+                return json.loads(session_file.read_text())  # type: ignore[no-any-return]
             except json.JSONDecodeError as e:
                 logger.warning(f"Session file corrupted: {e}, creating new session")
                 return self._create_new_session()
@@ -61,13 +63,14 @@ class SessionManager:
 
     def _create_new_session(self) -> dict[str, Any]:
         """Create a new session."""
-        return {
+        session: dict[str, Any] = {
             "session_id": f"sess_{uuid4().hex[:12]}",
             "active": True,
             "started_at": datetime.now(UTC).isoformat(),
             "last_updated": datetime.now(UTC).isoformat(),
             "checkpoints": [],
         }
+        return session
 
     def save(self, session: dict[str, Any]) -> None:
         """Persist session to disk.
@@ -118,8 +121,9 @@ class SessionManager:
             Checkpoint dictionary or None if not found
         """
         for chk in session["checkpoints"]:
-            if chk["ref"] == ref:
-                return chk
+            checkpoint = chk
+            if checkpoint["ref"] == ref:
+                return checkpoint  # type: ignore[no-any-return]
         return None
 
     def update_checkpoint_status(
@@ -231,7 +235,7 @@ def init_interactive() -> None:
     config = DetentConfig(
         agent=agent,
         policy=policy,
-        proxy={"host": "127.0.0.1", "port": 7070},
+        proxy=ProxyConfig(host="127.0.0.1", port=7070),
         pipeline=PipelineConfig(
             parallel=parallel,
             fail_fast=fail_fast,
@@ -248,7 +252,7 @@ def init_interactive() -> None:
 
     console.print("\n[green]✓ Created detent.yaml[/green]")
     console.print("[green]✓ Created .detent/session/[/green]")
-    console.print(f"[cyan]Ready to run: detent run <file>[/cyan]\n")
+    console.print("[cyan]Ready to run: detent run <file>[/cyan]\n")
 
 
 async def run_file(file_path: str, config: DetentConfig, session: dict[str, Any]) -> bool:
@@ -279,7 +283,7 @@ async def run_file(file_path: str, config: DetentConfig, session: dict[str, Any]
         await checkpoint_engine.savepoint(ref, [file_path])
     except Exception as e:
         logger.error(f"Failed to create checkpoint: {e}")
-        raise click.ClickException(f"Checkpoint creation failed: {e}")
+        raise click.ClickException(f"Checkpoint creation failed: {e}") from e
 
     # Track checkpoint
     mgr = SessionManager()
@@ -344,7 +348,7 @@ async def run_file(file_path: str, config: DetentConfig, session: dict[str, Any]
             logger.error(f"Rollback failed: {e}")
             mgr.update_checkpoint_status(session, ref, "rollback_failed")
             mgr.save(session)
-            raise click.ClickException(f"Rollback failed: {e}")
+            raise click.ClickException(f"Rollback failed: {e}") from e
 
         return False
 
@@ -431,7 +435,7 @@ async def do_rollback(ref: str) -> None:
         logger.error(f"Rollback failed: {e}")
         mgr.update_checkpoint_status(session, ref, "rollback_failed")
         mgr.save(session)
-        raise click.ClickException(f"Rollback failed: {e}")
+        raise click.ClickException(f"Rollback failed: {e}") from e
 
 
 @click.group()
@@ -452,7 +456,7 @@ def init() -> None:
         init_interactive()
     except Exception as e:
         logger.error(f"Init failed: {e}")
-        raise click.ClickException(str(e))
+        raise click.ClickException(str(e)) from e
 
 
 @main.command()
@@ -477,7 +481,7 @@ def run(file_path: str) -> None:
         raise
     except Exception as e:
         logger.error(f"Run failed: {e}")
-        raise click.ClickException(str(e))
+        raise click.ClickException(str(e)) from e
 
 
 @main.command()
@@ -487,7 +491,7 @@ def status() -> None:
         show_status()
     except Exception as e:
         logger.error(f"Status failed: {e}")
-        raise click.ClickException(str(e))
+        raise click.ClickException(str(e)) from e
 
 
 @main.command()
@@ -500,7 +504,7 @@ def rollback(checkpoint_ref: str) -> None:
         raise
     except Exception as e:
         logger.error(f"Rollback failed: {e}")
-        raise click.ClickException(str(e))
+        raise click.ClickException(str(e)) from e
 
 
 if __name__ == "__main__":
