@@ -23,7 +23,7 @@ Detent is **not** a code review product, code generation tool, or CI plugin. It 
 
 **Current Status:**
 
-- ⏳ v0.1 (Proof of Concept) — in development. **The `detent/` package does not exist yet; only project scaffolding (pyproject.toml, Makefile, Dockerfile, CI, docs) is in place.**
+- ✅ v0.1 (Proof of Concept) — Complete. Full package with CLI, SDK exports, session management, verification pipeline, checkpoint engine, and 211+ tests.
 - ⏳ v1.0 (Production Ready) — 6 months
 - ⏳ v2.0 (Enterprise Platform) — 12 months
 
@@ -331,13 +331,13 @@ DETENT_LOG_LEVEL=INFO                     # DEBUG | INFO | WARNING | ERROR
 
 ## Implementation Phases
 
-- ⏳ **v0.1 (Proof of Concept, 8 weeks):**
-  - Dual-point proxy for Claude Code + LangGraph VerificationNode
-  - Checkpoint engine (in-memory + shadow git), atomic rollback
-  - Verification pipeline: syntax, lint, typecheck, targeted tests
-  - Feedback synthesis engine (structured JSON)
-  - `detent.yaml`, `detent init` CLI, Python SDK
-  - Full unit tests for pipeline and checkpoint engine
+- ✅ **v0.1 (Proof of Concept) — Complete:**
+  - Dual-point proxy for Claude Code + LangGraph VerificationNode ✅
+  - Checkpoint engine (in-memory + shadow git), atomic rollback ✅
+  - Verification pipeline: syntax, lint, typecheck, targeted tests ✅
+  - Feedback synthesis engine (structured JSON) ✅
+  - `detent.yaml`, `detent init` CLI, Python SDK ✅
+  - Full unit tests for pipeline and checkpoint engine (211+ tests) ✅
 
 - ⏳ **v1.0 (Production Ready, 6 months):**
   - All 7 agent adapters; security scanning; plugin system; GitHub Actions; OpenTelemetry
