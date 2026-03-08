@@ -5,8 +5,11 @@ This module implements the command-line interface for Detent, the verification r
 
 import click
 
+from detent import __version__
+
 
 @click.group()
+@click.version_option(version=__version__)
 def main() -> None:
     """Detent: A verification runtime for AI coding agents.
 
