@@ -227,9 +227,14 @@ These apply to every change, no matter how small:
    - Create with: `git worktree add .worktrees/<branch> -b feature/<branch>`
    - Never execute plan tasks directly on `main` or the current working branch
 
-4. **Code Review:**
+4. **Code Review & CI:**
    - All code changes are subject to automated code review via GitHub Actions (`.github/workflows/ci.yml`)
    - CI runs Ruff lint + format check, mypy, and the full test suite on Python 3.12 and 3.13
+   - **IMPORTANT:** Before creating a pull request, verify CI will pass locally:
+     - Run `uv run ruff check detent/ tests/` (linting)
+     - Run `uv run mypy detent/` (type checking)
+     - Run `uv run pytest tests/ -q` (all tests)
+     - Fix any failures before pushing or creating the PR
    - Address CI failures before merging
 
 ### Project-Specific Guidelines

@@ -9,7 +9,11 @@ from __future__ import annotations
 __version__ = "0.1.0"
 
 # Pipeline result models
+# Proxy and IPC
+from detent.ipc import IPCControlChannel
 from detent.pipeline.result import Finding, VerificationResult
+from detent.proxy import DetentProxy, SessionManager
+from detent.proxy.types import DetentSessionConflictError, IPCMessageType
 
 # Verification stages
 from detent.stages.base import VerificationStage
@@ -20,8 +24,13 @@ from detent.stages.typecheck import TypecheckStage
 
 __all__ = [
     "__version__",
+    "DetentProxy",
+    "DetentSessionConflictError",
     "Finding",
+    "IPCControlChannel",
+    "IPCMessageType",
     "LintStage",
+    "SessionManager",
     "SyntaxStage",
     "TestsStage",
     "TypecheckStage",
