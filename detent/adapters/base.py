@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from detent.proxy.session import SessionManager
     from detent.schema import AgentAction
-
-logger = logging.getLogger(__name__)
 
 
 class AgentAdapter(ABC):
@@ -23,7 +20,7 @@ class AgentAdapter(ABC):
 
     agent_name: str
 
-    def __init__(self, session_manager: SessionManager | None) -> None:
+    def __init__(self, session_manager: SessionManager) -> None:
         """Initialize adapter.
 
         Args:

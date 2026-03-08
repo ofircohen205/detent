@@ -1,5 +1,7 @@
 """Unit tests for AgentAdapter base class."""
 
+from unittest.mock import MagicMock
+
 import pytest
 
 from detent.adapters.base import AgentAdapter
@@ -27,14 +29,16 @@ class MockAdapter(AgentAdapter):
 
 def test_adapter_base_abstract():
     """AgentAdapter should be abstract and require agent_name."""
+    mock_session_manager = MagicMock()
     with pytest.raises(TypeError):
-        AgentAdapter(session_manager=None)  # Should fail: abstract class
+        AgentAdapter(session_manager=mock_session_manager)  # Should fail: abstract class
 
 
 @pytest.mark.asyncio
 async def test_mock_adapter_intercept():
     """Mock adapter should normalize raw event to AgentAction."""
-    adapter = MockAdapter(session_manager=None)
+    mock_session_manager = MagicMock()
+    adapter = MockAdapter(session_manager=mock_session_manager)
     raw_event = {
         "tool": "Write",
         "input": {"file_path": "/src/main.py", "content": "x = 1"},
