@@ -39,13 +39,19 @@ class ClaudeCodeAdapter(AgentAdapter):
             "Bash": ActionType.SHELL_EXEC,
             "Read": ActionType.FILE_READ,
         }
-        action_type = action_type_map.get(tool_name, ActionType.FILE_WRITE)
+        action_type = action_type_map.get(tool_name, ActionType.MCP_TOOL)
 
-        logger.debug(
-            "[claude-code] intercepted %s tool call %s",
-            tool_name,
-            tool_call_id,
-        )
+        if tool_name not in action_type_map:
+            logger.warning(
+                "[claude-code] unknown tool %s, treating as mcp_tool",
+                tool_name,
+            )
+        else:
+            logger.debug(
+                "[claude-code] intercepted %s tool call %s",
+                tool_name,
+                tool_call_id,
+            )
 
         action = AgentAction(
             action_type=action_type,

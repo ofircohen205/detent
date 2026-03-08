@@ -49,3 +49,25 @@ async def test_claude_code_adapter_normalizes_bash_tool():
     assert action.action_type == "shell_exec"
     assert action.tool_input["command"] == "ls -la /src"
     assert action.agent == "claude-code"
+
+
+@pytest.mark.asyncio
+async def test_claude_code_adapter_unknown_tool_defaults_to_mcp_tool():
+    """ClaudeCodeAdapter should default unknown tools to mcp_tool (safe default)."""
+    from unittest.mock import MagicMock
+
+    adapter = ClaudeCodeAdapter(session_manager=MagicMock())
+
+    raw_event = {
+        "tool_name": "UnknownTool",
+        "tool_input": {
+            "param": "value",
+        },
+        "tool_call_id": "toolu_03GHI789",
+    }
+
+    action = await adapter.intercept(raw_event)
+
+    assert action.tool_name == "UnknownTool"
+    assert action.action_type == "mcp_tool"
+    assert action.agent == "claude-code"
