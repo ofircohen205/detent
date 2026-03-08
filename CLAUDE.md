@@ -405,7 +405,58 @@ Do NOT implement these — they are explicitly out of scope:
 - [docs/SRS.docx](./docs/SRS.docx) — Software Requirements Specification
 - [docs/ADD.docx](./docs/ADD.docx) — Architecture & Design Document
 
+## Using the Detent CLI
+
+### Installation
+
+```bash
+pip install detent
+```
+
+Or from source:
+
+```bash
+git clone https://github.com/ofircohen205/detent
+cd detent
+uv sync
+uv run detent init
+```
+
+### Quick Start
+
+```bash
+# 1. Initialize detent in your project
+detent init
+
+# 2. Run verification on a file
+detent run src/main.py
+
+# 3. Check session state
+detent status
+
+# 4. Rollback a checkpoint if needed
+detent rollback chk_before_write_000
+```
+
+### Policy Profiles
+
+- **strict** — All stages enabled, any finding blocks the write
+- **standard** — P0 stages enabled, warnings do not block (default)
+- **permissive** — Syntax only, all other stages as warnings
+
+### SDK Usage
+
+```python
+from detent import DetentConfig, VerificationPipeline, AgentAction
+
+config = DetentConfig.load("detent.yaml")
+pipeline = VerificationPipeline.from_config(config)
+
+# ... create AgentAction ...
+result = await pipeline.run(action)
+```
+
 ---
 
-**Last Updated:** 2026-03-03
+**Last Updated:** 2026-03-08
 **Version:** 0.1.0
