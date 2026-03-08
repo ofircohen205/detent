@@ -3,6 +3,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from detent.adapters.claude_code import ClaudeCodeAdapter
+from detent.pipeline.result import Finding, VerificationResult
+from detent.schema import AgentAction
 
 
 @pytest.mark.asyncio
@@ -67,3 +69,65 @@ async def test_claude_code_adapter_unknown_tool_defaults_to_mcp_tool():
     assert action.tool_name == "UnknownTool"
     assert action.action_type == "mcp_tool"
     assert action.agent == "claude-code"
+
+
+@pytest.mark.asyncio
+async def test_claude_code_adapter_allows_passing_verification():
+    """ClaudeCodeAdapter should allow when verification passes."""
+    adapter = ClaudeCodeAdapter(session_manager=MagicMock())
+
+    action = AgentAction(
+        action_type="file_write",
+        agent="claude-code",
+        tool_name="Write",
+        tool_input={"file_path": "/src/main.py", "content": "x = 1"},
+        tool_call_id="toolu_01",
+        session_id="sess_1",
+        checkpoint_ref="chk_1",
+        risk_level="medium",
+    )
+
+    result = VerificationResult(
+        stage="pipeline",
+        passed=True,
+        findings=[],
+        duration_ms=100.0,
+    )
+
+    output = await adapter.handle_verification_result(action, result)
+    assert output is None  # Allow (no modification)
+
+
+@pytest.mark.asyncio
+async def test_claude_code_adapter_blocks_on_syntax_error():
+    """ClaudeCodeAdapter should block on syntax errors."""
+    adapter = ClaudeCodeAdapter(session_manager=MagicMock())
+
+    action = AgentAction(
+        action_type="file_write",
+        agent="claude-code",
+        tool_name="Write",
+        tool_input={"file_path": "/src/main.py", "content": "x = "},
+        tool_call_id="toolu_01",
+        session_id="sess_1",
+        checkpoint_ref="chk_1",
+        risk_level="medium",
+    )
+
+    result = VerificationResult(
+        stage="pipeline",
+        passed=False,
+        findings=[
+            Finding(
+                severity="error",
+                file="/src/main.py",
+                line=1,
+                message="SyntaxError: invalid syntax",
+                stage="syntax",
+            )
+        ],
+        duration_ms=50.0,
+    )
+
+    with pytest.raises(ValueError, match="Verification failed"):
+        await adapter.handle_verification_result(action, result)

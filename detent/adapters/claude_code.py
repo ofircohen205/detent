@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from detent.adapters.base import AgentAdapter
 from detent.schema import ActionType, AgentAction, RiskLevel
+
+if TYPE_CHECKING:
+    from detent.pipeline.result import VerificationResult
 
 logger = logging.getLogger(__name__)
 
@@ -66,3 +69,48 @@ class ClaudeCodeAdapter(AgentAdapter):
         )
 
         return action
+
+    async def handle_verification_result(
+        self,
+        action: AgentAction,
+        result: VerificationResult,
+    ) -> dict[str, Any] | None:
+        """Process verification result and decide: allow / modify / block.
+
+        Args:
+            action: The verified action
+            result: Verification pipeline result
+
+        Returns:
+            None to allow execution, dict of modified tool_input for fixes
+
+        Raises:
+            ValueError: If verification found errors (syntax, typecheck, tests)
+        """
+        if result.passed:
+            logger.info(
+                "[claude-code] verification passed for %s, allowing execution",
+                action.tool_name,
+            )
+            return None
+
+        # Check for errors vs warnings
+        errors = [f for f in result.findings if f.severity == "error"]
+        warnings = [f for f in result.findings if f.severity == "warning"]
+
+        if errors:
+            # Block on any error (syntax, typecheck, test failure)
+            msg = f"Verification failed: {len(errors)} error(s) found"
+            logger.error("[claude-code] blocking %s: %s", action.tool_name, msg)
+            raise ValueError(msg)
+
+        if warnings:
+            # Lint/format issues only - could apply ruff fixes here
+            logger.info(
+                "[claude-code] %d warning(s) found for %s, would apply ruff fixes",
+                len(warnings),
+                action.tool_name,
+            )
+            return None
+
+        return None
