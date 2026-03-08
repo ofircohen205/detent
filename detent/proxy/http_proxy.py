@@ -100,9 +100,9 @@ class DetentProxy:
         self,
         method: str,
         url: str,
-        headers: dict,
+        headers: dict[str, str],
         body: bytes | None,
-    ) -> tuple[int, dict, bytes]:
+    ) -> tuple[int, dict[str, str], bytes]:
         """Forward request with exponential backoff retry on connection failure.
 
         Args:
@@ -144,6 +144,10 @@ class DetentProxy:
                 else:
                     logger.error("[proxy] request failed after %d attempts: %s", self._max_retries, e)
                     raise
+
+        # This line should never be reached due to the raise above
+        msg = "All retries exhausted"
+        raise RuntimeError(msg)
 
     async def _proxy_handler(self, request: web.Request) -> web.Response:
         """Forward request to upstream with retry logic."""
