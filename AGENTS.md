@@ -669,5 +669,132 @@ async def run(self, action: AgentAction) -> VerificationResult:
 
 ---
 
-**Last Updated:** 2026-03-03
+## Phase 8: CLI & SDK (v0.1 Completion)
+
+### CLI Commands
+
+The `detent` command provides four operations:
+
+**1. `detent init`** — Interactive setup
+- Detects agent type (claude-code, langgraph, cursor, aider)
+- Prompts for policy profile (strict, standard, permissive)
+- Creates `detent.yaml` and `.detent/session/` directory
+- Example:
+  ```bash
+  $ detent init
+  ✨ Detent Configuration Wizard
+  Detected agent: claude-code
+  Is this correct? [Y/n]: Y
+  Select policy profile: [1-3]: 2
+  ✓ Created detent.yaml
+  ```
+
+**2. `detent run <file>`** — Verify a file
+- Loads config from `detent.yaml`
+- Creates checkpoint before running pipeline
+- Executes full verification pipeline (syntax → lint → typecheck → tests)
+- Rolls back automatically if verification fails (unless policy allows)
+- Returns exit code 0 (pass) or 1 (fail)
+- Example:
+  ```bash
+  $ detent run src/main.py
+  🔍 Running verification pipeline for src/main.py
+  [████████████] syntax ✓
+  [████████████] lint ✓
+  [████████████] typecheck ✓
+  [████████████] tests ✓
+  ✅ All stages passed
+  Checkpoint: chk_before_write_000
+  ```
+
+**3. `detent status`** — Show session state
+- Displays active session ID
+- Lists all checkpoints with status (created, rolled_back, restored)
+- Example:
+  ```bash
+  $ detent status
+  📊 Detent Session Status
+  Session: sess_abc123def456
+  Checkpoints: 2
+    chk_before_write_000  src/main.py    ✓ created
+    chk_before_write_001  src/utils.py   ✗ rolled_back
+  ```
+
+**4. `detent rollback <ref>`** — Restore a checkpoint
+- Looks up checkpoint by reference
+- Calls CheckpointEngine.rollback() to restore file
+- Updates session state
+- Example:
+  ```bash
+  $ detent rollback chk_before_write_001
+  🔄 Rolling back to chk_before_write_001 (src/utils.py)
+  ✓ Restored src/utils.py to chk_before_write_001
+  ```
+
+### Session State
+
+Session state is stored in `.detent/session/default.json`:
+
+```json
+{
+  "session_id": "sess_abc123def456",
+  "agent": "claude-code",
+  "policy": "standard",
+  "active": true,
+  "started_at": "2026-03-08T14:22:15Z",
+  "last_updated": "2026-03-08T14:25:33Z",
+  "checkpoints": [
+    {
+      "ref": "chk_before_write_000",
+      "file": "src/main.py",
+      "created_at": "2026-03-08T14:22:16Z",
+      "status": "created"
+    }
+  ]
+}
+```
+
+### SDK Exports
+
+The full SDK is now exportable from `detent`:
+
+```python
+from detent import (
+    # Configuration
+    DetentConfig, ProxyConfig, PipelineConfig, StageConfig,
+    # Schema
+    AgentAction, ActionType, RiskLevel,
+    # Runtime
+    DetentProxy, SessionManager, IPCControlChannel,
+    # Checkpoint
+    CheckpointEngine,
+    # Pipeline
+    VerificationPipeline, VerificationResult, Finding,
+    # Feedback
+    FeedbackSynthesizer, StructuredFeedback, EnrichedFinding,
+    # Stages
+    VerificationStage, SyntaxStage, LintStage, TypecheckStage, TestsStage,
+    # Adapters
+    AgentAdapter, ClaudeCodeAdapter, LangGraphAdapter,
+    # Types
+    DetentSessionConflictError, IPCMessageType,
+)
+```
+
+### Testing CLI
+
+Unit tests for CLI components:
+- `tests/unit/test_cli_session.py` — SessionManager persistence and tracking
+- `tests/unit/test_cli_init.py` — Agent detection and setup
+- `tests/unit/test_cli_run.py` — File verification and pipeline integration
+- `tests/unit/test_cli_status_rollback.py` — Status display and checkpoint restoration
+- `tests/unit/test_cli_commands.py` — Click command help and entry points
+- `tests/unit/test_sdk_exports.py` — SDK export completeness
+
+Integration test:
+- `tests/integration/test_cli_workflow.py` — Full end-to-end workflow
+
+---
+
+**Last Updated:** 2026-03-08
 **Version:** 0.1.0
