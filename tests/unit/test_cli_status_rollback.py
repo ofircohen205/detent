@@ -1,7 +1,6 @@
 """Test detent status and rollback commands."""
 
 import json
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

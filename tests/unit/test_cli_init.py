@@ -1,9 +1,7 @@
 """Test detent init command."""
 
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
 import yaml
 
 
@@ -30,10 +28,12 @@ def test_detect_agent_default():
     """detect_agent should default to claude-code."""
     from detent.cli import detect_agent
 
-    with patch("pathlib.Path.exists", return_value=False):
-        with patch.dict("os.environ", {}, clear=True):
-            agent = detect_agent()
-            assert agent == "claude-code"
+    with (
+        patch("pathlib.Path.exists", return_value=False),
+        patch.dict("os.environ", {}, clear=True),
+    ):
+        agent = detect_agent()
+        assert agent == "claude-code"
 
 
 def test_init_creates_session_dir(tmp_path):

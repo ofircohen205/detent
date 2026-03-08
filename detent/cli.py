@@ -108,9 +108,7 @@ class SessionManager:
         )
         session["last_updated"] = datetime.now(UTC).isoformat()
 
-    def get_checkpoint(
-        self, session: dict[str, Any], ref: str
-    ) -> dict[str, Any] | None:
+    def get_checkpoint(self, session: dict[str, Any], ref: str) -> dict[str, Any] | None:
         """Retrieve checkpoint by reference.
 
         Args:
@@ -126,9 +124,7 @@ class SessionManager:
                 return checkpoint  # type: ignore[no-any-return]
         return None
 
-    def update_checkpoint_status(
-        self, session: dict[str, Any], ref: str, status: str
-    ) -> None:
+    def update_checkpoint_status(self, session: dict[str, Any], ref: str, status: str) -> None:
         """Update checkpoint status.
 
         Args:
@@ -319,9 +315,7 @@ async def run_file(file_path: str, config: DetentConfig, session: dict[str, Any]
         console.print(f"[red]❌ Pipeline failed at {result.stage}[/red]\n")
 
         for finding in result.findings:
-            severity_color = (
-                "red" if finding.severity == "error" else "yellow"
-            )
+            severity_color = "red" if finding.severity == "error" else "yellow"
             console.print(
                 f"[{severity_color}]{finding.severity.upper()}[/{severity_color}] "
                 f"{finding.file}:{finding.line} {finding.message}"
@@ -333,9 +327,7 @@ async def run_file(file_path: str, config: DetentConfig, session: dict[str, Any]
 
         # Policy decision
         if _policy_allows(result, config.policy):
-            console.print(
-                f"[yellow]⚠ Policy allows proceeding (policy={config.policy})[/yellow]\n"
-            )
+            console.print(f"[yellow]⚠ Policy allows proceeding (policy={config.policy})[/yellow]\n")
             return True
 
         # Rollback

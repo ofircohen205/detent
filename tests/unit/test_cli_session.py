@@ -1,7 +1,6 @@
 """Test CLI session manager."""
 
 import json
-from pathlib import Path
 
 import pytest
 

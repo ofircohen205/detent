@@ -3,9 +3,7 @@
 Tests: detent init → detent run → detent status → detent rollback
 """
 
-import asyncio
-import json
-from pathlib import Path
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -14,8 +12,6 @@ import pytest
 @pytest.mark.asyncio
 async def test_full_workflow(tmp_path):
     """Test complete workflow: init, run, status, rollback."""
-    import os
-
     # Change to temp directory
     os.chdir(tmp_path)
 
@@ -24,7 +20,7 @@ async def test_full_workflow(tmp_path):
     test_file.parent.mkdir()
     test_file.write_text("print('hello world')\n")
 
-    from detent.cli import SessionManager, init_interactive, run_file, show_status
+    from detent.cli import SessionManager, run_file
 
     # Step 1: Initialize
     # (Skip interactive for testing, just create config manually)
@@ -56,32 +52,34 @@ async def test_full_workflow(tmp_path):
     assert len(session["checkpoints"]) == 0
 
     # Step 3: Mock pipeline and run
-    with patch("detent.cli.VerificationPipeline.from_config") as mock_pipeline:
-        with patch("detent.cli.CheckpointEngine") as mock_checkpoint:
-            # Mock successful pipeline result
-            mock_result = MagicMock()
-            mock_result.passed = True
-            mock_result.findings = []
+    with (
+        patch("detent.cli.VerificationPipeline.from_config") as mock_pipeline,
+        patch("detent.cli.CheckpointEngine") as mock_checkpoint,
+    ):
+        # Mock successful pipeline result
+        mock_result = MagicMock()
+        mock_result.passed = True
+        mock_result.findings = []
 
-            mock_pipeline_instance = AsyncMock()
-            mock_pipeline_instance.run.return_value = mock_result
-            mock_pipeline.return_value = mock_pipeline_instance
+        mock_pipeline_instance = AsyncMock()
+        mock_pipeline_instance.run.return_value = mock_result
+        mock_pipeline.return_value = mock_pipeline_instance
 
-            # Mock checkpoint
-            mock_checkpoint_instance = AsyncMock()
-            mock_checkpoint_instance.savepoint = AsyncMock()
-            mock_checkpoint_instance.rollback = AsyncMock()
-            mock_checkpoint.return_value = mock_checkpoint_instance
+        # Mock checkpoint
+        mock_checkpoint_instance = AsyncMock()
+        mock_checkpoint_instance.savepoint = AsyncMock()
+        mock_checkpoint_instance.rollback = AsyncMock()
+        mock_checkpoint.return_value = mock_checkpoint_instance
 
-            # Run verification
-            result = await run_file(str(test_file), config, session)
+        # Run verification
+        result = await run_file(str(test_file), config, session)
 
-            assert result is True
-            assert len(session["checkpoints"]) == 1
-            assert session["checkpoints"][0]["ref"] == "chk_before_write_000"
+        assert result is True
+        assert len(session["checkpoints"]) == 1
+        assert session["checkpoints"][0]["ref"] == "chk_before_write_000"
 
-            # Save session after successful run
-            mgr.save(session)
+        # Save session after successful run
+        mgr.save(session)
 
     # Step 4: Verify status shows checkpoint
     session = mgr.load_or_create()

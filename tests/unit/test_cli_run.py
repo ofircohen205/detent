@@ -1,6 +1,5 @@
 """Test detent run command."""
 
-import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -24,28 +23,30 @@ async def test_run_file_passes():
         "last_updated": "2026-03-08T00:00:00Z",
     }
 
-    with patch("detent.cli.VerificationPipeline.from_config") as mock_pipeline:
-        with patch("detent.cli.CheckpointEngine") as mock_chk_class:
-            # Mock pipeline result
-            mock_result = MagicMock()
-            mock_result.passed = True
-            mock_result.findings = []
+    with (
+        patch("detent.cli.VerificationPipeline.from_config") as mock_pipeline,
+        patch("detent.cli.CheckpointEngine") as mock_chk_class,
+    ):
+        # Mock pipeline result
+        mock_result = MagicMock()
+        mock_result.passed = True
+        mock_result.findings = []
 
-            mock_pipeline_instance = AsyncMock()
-            mock_pipeline_instance.run.return_value = mock_result
-            mock_pipeline.return_value = mock_pipeline_instance
+        mock_pipeline_instance = AsyncMock()
+        mock_pipeline_instance.run.return_value = mock_result
+        mock_pipeline.return_value = mock_pipeline_instance
 
-            # Mock checkpoint
-            mock_checkpoint_instance = AsyncMock()
-            mock_checkpoint_instance.savepoint = AsyncMock()
-            mock_chk_class.return_value = mock_checkpoint_instance
+        # Mock checkpoint
+        mock_checkpoint_instance = AsyncMock()
+        mock_checkpoint_instance.savepoint = AsyncMock()
+        mock_chk_class.return_value = mock_checkpoint_instance
 
-            config = MagicMock()
-            config.policy = "standard"
+        config = MagicMock()
+        config.policy = "standard"
 
-            result = await run_file(str(temp_file), config, session)
+        result = await run_file(str(temp_file), config, session)
 
-            assert result is True
+        assert result is True
 
 
 @pytest.mark.asyncio
@@ -64,30 +65,30 @@ async def test_run_file_fails_and_rollsback():
         "last_updated": "2026-03-08T00:00:00Z",
     }
 
-    with patch("detent.cli.VerificationPipeline.from_config") as mock_pipeline:
-        with patch("detent.cli.CheckpointEngine") as mock_chk_class:
-            # Mock failed pipeline result
-            mock_result = MagicMock()
-            mock_result.passed = False
-            mock_result.findings = [
-                MagicMock(severity="error", message="Syntax error")
-            ]
+    with (
+        patch("detent.cli.VerificationPipeline.from_config") as mock_pipeline,
+        patch("detent.cli.CheckpointEngine") as mock_chk_class,
+    ):
+        # Mock failed pipeline result
+        mock_result = MagicMock()
+        mock_result.passed = False
+        mock_result.findings = [MagicMock(severity="error", message="Syntax error")]
 
-            mock_pipeline_instance = AsyncMock()
-            mock_pipeline_instance.run.return_value = mock_result
-            mock_pipeline.return_value = mock_pipeline_instance
+        mock_pipeline_instance = AsyncMock()
+        mock_pipeline_instance.run.return_value = mock_result
+        mock_pipeline.return_value = mock_pipeline_instance
 
-            # Mock checkpoint
-            mock_checkpoint_instance = AsyncMock()
-            mock_checkpoint_instance.savepoint = AsyncMock()
-            mock_checkpoint_instance.rollback = AsyncMock()
-            mock_chk_class.return_value = mock_checkpoint_instance
+        # Mock checkpoint
+        mock_checkpoint_instance = AsyncMock()
+        mock_checkpoint_instance.savepoint = AsyncMock()
+        mock_checkpoint_instance.rollback = AsyncMock()
+        mock_chk_class.return_value = mock_checkpoint_instance
 
-            config = MagicMock()
-            config.policy = "standard"
+        config = MagicMock()
+        config.policy = "standard"
 
-            result = await run_file(str(temp_file), config, session)
+        result = await run_file(str(temp_file), config, session)
 
-            # Should have called rollback
-            mock_checkpoint_instance.rollback.assert_called_once()
-            assert result is False
+        # Should have called rollback
+        mock_checkpoint_instance.rollback.assert_called_once()
+        assert result is False
