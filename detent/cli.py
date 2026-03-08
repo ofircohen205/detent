@@ -251,6 +251,128 @@ def init_interactive() -> None:
     console.print(f"[cyan]Ready to run: detent run <file>[/cyan]\n")
 
 
+async def run_file(file_path: str, config: DetentConfig, session: dict[str, Any]) -> bool:
+    """Execute verification pipeline for a file.
+
+    Args:
+        file_path: Path to file to verify
+        config: DetentConfig instance
+        session: Session dictionary
+
+    Returns:
+        True if passed, False if failed
+    """
+    path = Path(file_path)
+
+    if not path.exists():
+        raise click.ClickException(f"File not found: {file_path}")
+
+    # Load components
+    checkpoint_engine = CheckpointEngine()
+    pipeline = VerificationPipeline.from_config(config)
+
+    # Create checkpoint reference
+    ref = f"chk_before_write_{len(session['checkpoints']):03d}"
+
+    # Create SAVEPOINT
+    try:
+        await checkpoint_engine.savepoint(ref, [file_path])
+    except Exception as e:
+        logger.error(f"Failed to create checkpoint: {e}")
+        raise click.ClickException(f"Checkpoint creation failed: {e}")
+
+    # Track checkpoint
+    mgr = SessionManager()
+    mgr.add_checkpoint(session, ref, file_path, "created")
+
+    # Read file content
+    content = path.read_text()
+
+    # Normalize to AgentAction
+    action = AgentAction(
+        action_type=ActionType.FILE_WRITE,
+        agent=session.get("agent", "cli"),
+        tool_name="Write",
+        tool_input={"file_path": file_path, "content": content},
+        tool_call_id=f"tool_{uuid4().hex[:8]}",
+        session_id=session["session_id"],
+        checkpoint_ref=ref,
+        risk_level=RiskLevel.MEDIUM,
+    )
+
+    # Run pipeline
+    console.print(f"\n[cyan]🔍 Running verification pipeline for {file_path}[/cyan]\n")
+
+    result = await pipeline.run(action)
+
+    # Display results
+    if result.passed:
+        console.print("[green]✅ All stages passed[/green]")
+        console.print(f"[cyan]Checkpoint: {ref}[/cyan]\n")
+        return True
+    else:
+        # Display findings
+        console.print(f"[red]❌ Pipeline failed at {result.stage}[/red]\n")
+
+        for finding in result.findings:
+            severity_color = (
+                "red" if finding.severity == "error" else "yellow"
+            )
+            console.print(
+                f"[{severity_color}]{finding.severity.upper()}[/{severity_color}] "
+                f"{finding.file}:{finding.line} {finding.message}"
+            )
+            if finding.fix_suggestion:
+                console.print(f"  [cyan]→ {finding.fix_suggestion}[/cyan]")
+
+        console.print()
+
+        # Policy decision
+        if _policy_allows(result, config.policy):
+            console.print(
+                f"[yellow]⚠ Policy allows proceeding (policy={config.policy})[/yellow]\n"
+            )
+            return True
+
+        # Rollback
+        console.print(f"[yellow]🔄 Rolling back to {ref}[/yellow]\n")
+        try:
+            await checkpoint_engine.rollback(ref)
+            mgr.update_checkpoint_status(session, ref, "rolled_back")
+            mgr.save(session)
+        except Exception as e:
+            logger.error(f"Rollback failed: {e}")
+            mgr.update_checkpoint_status(session, ref, "rollback_failed")
+            mgr.save(session)
+            raise click.ClickException(f"Rollback failed: {e}")
+
+        return False
+
+
+def _policy_allows(result: VerificationResult, policy: str) -> bool:
+    """Determine if policy allows verification result.
+
+    Args:
+        result: VerificationResult from pipeline
+        policy: Policy profile (strict, standard, permissive)
+
+    Returns:
+        True if policy allows, False otherwise
+    """
+    if policy == "strict":
+        return result.passed
+
+    if policy == "standard":
+        # Allow warnings, block errors
+        return not any(f.severity == "error" for f in result.findings)
+
+    if policy == "permissive":
+        # Allow all
+        return True
+
+    return result.passed
+
+
 @click.group()
 @click.version_option(version=__version__)
 def main() -> None:
@@ -269,6 +391,31 @@ def init() -> None:
         init_interactive()
     except Exception as e:
         logger.error(f"Init failed: {e}")
+        raise click.ClickException(str(e))
+
+
+@main.command()
+@click.argument("file_path")
+def run(file_path: str) -> None:
+    """Verify a file through the full pipeline."""
+    try:
+        # Load session and config
+        mgr = SessionManager()
+        session = mgr.load_or_create()
+        mgr.save(session)
+
+        config = DetentConfig.load()
+
+        # Run verification
+        result = asyncio.run(run_file(file_path, config, session))
+
+        # Exit code
+        exit_code = 0 if result else 1
+        raise SystemExit(exit_code)
+    except click.ClickException:
+        raise
+    except Exception as e:
+        logger.error(f"Run failed: {e}")
         raise click.ClickException(str(e))
 
 
