@@ -4,18 +4,18 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from detent.checkpoint.engine import CheckpointEngine
     from detent.ipc.channel import IPCControlChannel
     from detent.pipeline.pipeline import VerificationPipeline
+    from detent.schema import AgentAction
 
 from detent.feedback.synthesizer import FeedbackSynthesizer
 from detent.pipeline.result import VerificationResult
 from detent.proxy.types import DetentSessionConflictError, IPCMessage, IPCMessageType
-from detent.schema import AgentAction
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ class SessionManager:
             IPCMessage(
                 type=IPCMessageType.SESSION_START,
                 data={"session_id": session_id},
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
             )
         )
 
@@ -105,7 +105,7 @@ class SessionManager:
             IPCMessage(
                 type=IPCMessageType.SESSION_END,
                 data={"session_id": session_id},
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
             )
         )
 
@@ -151,7 +151,7 @@ class SessionManager:
                         "tool_call_id": action.tool_call_id,
                         "action": action.model_dump(),
                     },
-                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    timestamp=datetime.now(UTC).isoformat(),
                 )
             )
 
@@ -193,7 +193,7 @@ class SessionManager:
                     "status": "allowed",
                     "checkpoint_ref": action.checkpoint_ref,
                 },
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
             )
         )
 
@@ -224,6 +224,6 @@ class SessionManager:
                     "checkpoint_ref": checkpoint_ref,
                     "feedback": feedback.model_dump(),
                 },
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
             )
         )

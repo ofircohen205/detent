@@ -1,7 +1,6 @@
 """Tests for HTTP reverse proxy."""
 
 import json
-from pathlib import Path
 
 import aiohttp
 import pytest
@@ -27,12 +26,13 @@ async def test_proxy_health_endpoint():
     await proxy.start()
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"http://127.0.0.1:{proxy.port}/health") as resp:
-                assert resp.status == 200
-                data = await resp.json()
-                assert data["status"] == "ok"
-                assert "session_id" in data
+        async with aiohttp.ClientSession() as session, session.get(
+            f"http://127.0.0.1:{proxy.port}/health"
+        ) as resp:
+            assert resp.status == 200
+            data = await resp.json()
+            assert data["status"] == "ok"
+            assert "session_id" in data
     finally:
         await proxy.stop()
 
@@ -60,13 +60,12 @@ async def test_proxy_forwards_request_to_upstream(aiohttp_server):
 
     try:
         # Make request through proxy
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                f"http://127.0.0.1:{proxy.port}/messages",
-                json={"model": "claude-3-opus", "messages": []},
-            ) as resp:
-                data = await resp.json()
-                assert data["id"] == "msg_123"
+        async with aiohttp.ClientSession() as session, session.post(
+            f"http://127.0.0.1:{proxy.port}/messages",
+            json={"model": "claude-3-opus", "messages": []},
+        ) as resp:
+            data = await resp.json()
+            assert data["id"] == "msg_123"
     finally:
         await proxy.stop()
 

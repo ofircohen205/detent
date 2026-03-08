@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -10,12 +9,9 @@ import pytest
 
 from detent.checkpoint.engine import CheckpointEngine
 from detent.config import PipelineConfig
-from detent.feedback.synthesizer import FeedbackSynthesizer
 from detent.ipc.channel import IPCControlChannel
 from detent.pipeline.pipeline import VerificationPipeline
-from detent.pipeline.result import VerificationResult
 from detent.proxy.session import SessionManager
-from detent.proxy.types import IPCMessageType
 from detent.schema import ActionType, AgentAction, RiskLevel
 from detent.stages.syntax import SyntaxStage
 
@@ -31,8 +27,8 @@ async def tmp_ipc_socket(tmp_path: Path) -> AsyncIterator[Path]:
     We use a very short path to stay well below the limit.
     """
     # Use a much shorter path to avoid "AF_UNIX path too long" error
-    import tempfile
     import shutil
+    import tempfile
 
     short_path = Path(tempfile.mkdtemp(prefix="dsock"))
     try:

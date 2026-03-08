@@ -5,14 +5,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import aiohttp
 from aiohttp import web
-
-from detent.proxy.types import DetentSessionConflictError, SessionState
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +88,7 @@ class DetentProxy:
 
         state = {
             "session_id": self._session_id,
-            "started_at": datetime.now(timezone.utc).isoformat(),
+            "started_at": datetime.now(UTC).isoformat(),
         }
 
         session_file.write_text(json.dumps(state, indent=2))
@@ -118,17 +116,16 @@ class DetentProxy:
 
         for attempt in range(self._max_retries):
             try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.request(
-                        method,
-                        url,
-                        data=body,
-                        headers=headers,
-                        timeout=aiohttp.ClientTimeout(total=self.timeout_s),
-                    ) as resp:
-                        response_body = await resp.read()
-                        return resp.status, dict(resp.headers), response_body
-            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                async with aiohttp.ClientSession() as session, session.request(
+                    method,
+                    url,
+                    data=body,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=self.timeout_s),
+                ) as resp:
+                    response_body = await resp.read()
+                    return resp.status, dict(resp.headers), response_body
+            except (TimeoutError, aiohttp.ClientError) as e:
                 if attempt < self._max_retries - 1:
                     wait = backoffs[attempt]
                     logger.warning(
