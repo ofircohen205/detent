@@ -373,6 +373,67 @@ def _policy_allows(result: VerificationResult, policy: str) -> bool:
     return result.passed
 
 
+def show_status() -> None:
+    """Display active session and checkpoints."""
+    mgr = SessionManager()
+    session = mgr.load_or_create()
+
+    if not session["checkpoints"]:
+        console.print("[yellow]No checkpoints yet. Run 'detent run <file>' first.[/yellow]")
+        return
+
+    table = Table(title=f"Detent Session {session['session_id']}")
+    table.add_column("Checkpoint", style="cyan")
+    table.add_column("File", style="magenta")
+    table.add_column("Status", style="green")
+    table.add_column("Created", style="yellow")
+
+    for chk in session["checkpoints"]:
+        status_color = "green" if chk["status"] == "created" else "yellow"
+        table.add_row(
+            chk["ref"],
+            chk["file"],
+            f"[{status_color}]{chk['status']}[/{status_color}]",
+            chk["created_at"],
+        )
+
+    console.print(table)
+
+
+async def do_rollback(ref: str) -> None:
+    """Restore file to checkpoint.
+
+    Args:
+        ref: Checkpoint reference
+    """
+    mgr = SessionManager()
+    session = mgr.load_or_create()
+
+    checkpoint = mgr.get_checkpoint(session, ref)
+
+    if checkpoint is None:
+        available = [c["ref"] for c in session["checkpoints"]]
+        console.print(f"[red]✗ Checkpoint not found: {ref}[/red]")
+        if available:
+            console.print(f"[yellow]Available: {', '.join(available)}[/yellow]")
+        raise click.ClickException(f"Checkpoint not found: {ref}")
+
+    console.print(f"\n[cyan]🔄 Rolling back to {ref} ({checkpoint['file']})[/cyan]\n")
+
+    checkpoint_engine = CheckpointEngine()
+
+    try:
+        await checkpoint_engine.rollback(ref)
+        mgr.update_checkpoint_status(session, ref, "restored")
+        mgr.save(session)
+        console.print(f"[green]✓ Restored {checkpoint['file']} to {ref}[/green]\n")
+    except Exception as e:
+        logger.error(f"Rollback failed: {e}")
+        mgr.update_checkpoint_status(session, ref, "rollback_failed")
+        mgr.save(session)
+        raise click.ClickException(f"Rollback failed: {e}")
+
+
 @click.group()
 @click.version_option(version=__version__)
 def main() -> None:
@@ -416,6 +477,29 @@ def run(file_path: str) -> None:
         raise
     except Exception as e:
         logger.error(f"Run failed: {e}")
+        raise click.ClickException(str(e))
+
+
+@main.command()
+def status() -> None:
+    """Show active session and checkpoints."""
+    try:
+        show_status()
+    except Exception as e:
+        logger.error(f"Status failed: {e}")
+        raise click.ClickException(str(e))
+
+
+@main.command()
+@click.argument("checkpoint_ref")
+def rollback(checkpoint_ref: str) -> None:
+    """Restore a file to a checkpoint."""
+    try:
+        asyncio.run(do_rollback(checkpoint_ref))
+    except click.ClickException:
+        raise
+    except Exception as e:
+        logger.error(f"Rollback failed: {e}")
         raise click.ClickException(str(e))
 
 
