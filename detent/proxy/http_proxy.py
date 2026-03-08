@@ -124,3 +124,21 @@ class DetentProxy:
                 {"error": str(e)},
                 status=502,
             )
+
+    def extract_tool_calls(self, response: dict[str, Any]) -> list[dict[str, Any]]:
+        """Extract tool use blocks from Anthropic API response.
+
+        Args:
+            response: Anthropic API response dict
+
+        Returns:
+            List of tool use blocks (empty if none)
+        """
+        tool_calls = []
+        content = response.get("content", [])
+
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "tool_use":
+                tool_calls.append(block)
+
+        return tool_calls

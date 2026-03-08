@@ -66,3 +66,39 @@ async def test_proxy_forwards_request_to_upstream(aiohttp_server):
                 assert data["id"] == "msg_123"
     finally:
         await proxy.stop()
+
+
+def test_extract_tool_calls_from_anthropic_response():
+    """Extract tool use blocks from Anthropic API response."""
+    proxy = DetentProxy()
+
+    response = {
+        "id": "msg_123",
+        "content": [
+            {"type": "text", "text": "I'll write a file."},
+            {
+                "type": "tool_use",
+                "id": "toolu_01ABC",
+                "name": "Write",
+                "input": {"file_path": "/src/main.py", "content": "print('hello')"},
+            },
+        ],
+    }
+
+    tool_calls = proxy.extract_tool_calls(response)
+    assert len(tool_calls) == 1
+    assert tool_calls[0]["name"] == "Write"
+    assert tool_calls[0]["input"]["file_path"] == "/src/main.py"
+
+
+def test_extract_no_tool_calls():
+    """Response with no tool use should return empty list."""
+    proxy = DetentProxy()
+
+    response = {
+        "id": "msg_123",
+        "content": [{"type": "text", "text": "Just text response."}],
+    }
+
+    tool_calls = proxy.extract_tool_calls(response)
+    assert tool_calls == []
