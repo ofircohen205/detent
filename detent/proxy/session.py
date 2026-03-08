@@ -67,9 +67,7 @@ class SessionManager:
         """
         async with self._lock:
             if self.is_active:
-                raise DetentSessionConflictError(
-                    f"Session already active: {self.session_id}"
-                )
+                raise DetentSessionConflictError(f"Session already active: {self.session_id}")
 
             self.is_active = True
             self.session_id = session_id

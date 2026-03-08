@@ -73,10 +73,12 @@ class DetentProxy:
 
     async def _health_handler(self, request: web.Request) -> web.Response:
         """Handle GET /health."""
-        return web.json_response({
-            "status": "ok",
-            "session_id": self._session_id or "none",
-        })
+        return web.json_response(
+            {
+                "status": "ok",
+                "session_id": self._session_id or "none",
+            }
+        )
 
     async def _save_session_state(self) -> None:
         """Persist session state to file."""
@@ -116,13 +118,16 @@ class DetentProxy:
 
         for attempt in range(self._max_retries):
             try:
-                async with aiohttp.ClientSession() as session, session.request(
-                    method,
-                    url,
-                    data=body,
-                    headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=self.timeout_s),
-                ) as resp:
+                async with (
+                    aiohttp.ClientSession() as session,
+                    session.request(
+                        method,
+                        url,
+                        data=body,
+                        headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=self.timeout_s),
+                    ) as resp,
+                ):
                     response_body = await resp.read()
                     return resp.status, dict(resp.headers), response_body
             except (TimeoutError, aiohttp.ClientError) as e:
@@ -157,9 +162,7 @@ class DetentProxy:
         }
 
         try:
-            status, resp_headers, resp_body = await self._forward_with_retry(
-                method, upstream_url, headers, body
-            )
+            status, resp_headers, resp_body = await self._forward_with_retry(method, upstream_url, headers, body)
             return web.Response(body=resp_body, status=status, headers=resp_headers)
         except Exception as e:
             logger.error("[proxy] forwarding failed: %s", e)

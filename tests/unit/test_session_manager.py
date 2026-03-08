@@ -310,9 +310,7 @@ async def test_concurrent_session_operations():
         for i in range(5)
     ]
 
-    results = await asyncio.gather(
-        *[manager.intercept_tool_call(action) for action in actions]
-    )
+    results = await asyncio.gather(*[manager.intercept_tool_call(action) for action in actions])
 
     # All should pass
     assert all(r.passed for r in results)

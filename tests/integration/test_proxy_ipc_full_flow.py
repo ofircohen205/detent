@@ -151,9 +151,7 @@ async def test_full_flow_valid_code_passes_verification(
 
     try:
         # Create checkpoint
-        await session_manager.checkpoint_engine.savepoint(
-            "chk_002", [str(test_file)]
-        )
+        await session_manager.checkpoint_engine.savepoint("chk_002", [str(test_file)])
 
         # Create action with valid Python code
         new_content = "def helper():\n    return 42\n\ndef another():\n    return 100\n"
@@ -246,12 +244,8 @@ async def test_checkpoint_refs_tracked_per_session(
 
     try:
         # Create multiple checkpoints
-        await session_manager.checkpoint_engine.savepoint(
-            "chk_001", [str(file1)]
-        )
-        await session_manager.checkpoint_engine.savepoint(
-            "chk_002", [str(file2)]
-        )
+        await session_manager.checkpoint_engine.savepoint("chk_001", [str(file1)])
+        await session_manager.checkpoint_engine.savepoint("chk_002", [str(file2)])
 
         # Create actions (won't verify, just create checkpoints)
         action1 = AgentAction(
@@ -313,9 +307,7 @@ async def test_ipc_messages_sent_during_flow(
 
     try:
         # Create checkpoint and action
-        await session_manager.checkpoint_engine.savepoint(
-            "chk_001", [str(test_file)]
-        )
+        await session_manager.checkpoint_engine.savepoint("chk_001", [str(test_file)])
 
         action = AgentAction(
             action_type=ActionType.FILE_WRITE,
@@ -393,9 +385,7 @@ async def test_verification_result_metadata_includes_stage_results(
     await session_manager.start_session(session_id)
 
     try:
-        await session_manager.checkpoint_engine.savepoint(
-            "chk_001", [str(test_file)]
-        )
+        await session_manager.checkpoint_engine.savepoint("chk_001", [str(test_file)])
 
         action = AgentAction(
             action_type=ActionType.FILE_WRITE,
@@ -438,9 +428,7 @@ async def test_feedback_synthesis_on_verification_failure(
     await session_manager.start_session(session_id)
 
     try:
-        await session_manager.checkpoint_engine.savepoint(
-            "chk_001", [str(test_file)]
-        )
+        await session_manager.checkpoint_engine.savepoint("chk_001", [str(test_file)])
 
         # Write syntax error
         action = AgentAction(

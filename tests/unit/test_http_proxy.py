@@ -26,9 +26,7 @@ async def test_proxy_health_endpoint():
     await proxy.start()
 
     try:
-        async with aiohttp.ClientSession() as session, session.get(
-            f"http://127.0.0.1:{proxy.port}/health"
-        ) as resp:
+        async with aiohttp.ClientSession() as session, session.get(f"http://127.0.0.1:{proxy.port}/health") as resp:
             assert resp.status == 200
             data = await resp.json()
             assert data["status"] == "ok"
@@ -40,12 +38,15 @@ async def test_proxy_health_endpoint():
 @pytest.mark.asyncio
 async def test_proxy_forwards_request_to_upstream(aiohttp_server):
     """Proxy should forward request to upstream, preserving headers and body."""
+
     # Mock upstream server
     async def upstream_handler(request):
-        return web.json_response({
-            "id": "msg_123",
-            "content": [{"type": "text", "text": "Hello"}],
-        })
+        return web.json_response(
+            {
+                "id": "msg_123",
+                "content": [{"type": "text", "text": "Hello"}],
+            }
+        )
 
     app_upstream = web.Application()
     app_upstream.router.add_post("/messages", upstream_handler)
@@ -60,10 +61,13 @@ async def test_proxy_forwards_request_to_upstream(aiohttp_server):
 
     try:
         # Make request through proxy
-        async with aiohttp.ClientSession() as session, session.post(
-            f"http://127.0.0.1:{proxy.port}/messages",
-            json={"model": "claude-3-opus", "messages": []},
-        ) as resp:
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(
+                f"http://127.0.0.1:{proxy.port}/messages",
+                json={"model": "claude-3-opus", "messages": []},
+            ) as resp,
+        ):
             data = await resp.json()
             assert data["id"] == "msg_123"
     finally:
