@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +47,9 @@ class DetentProxy:
         self._app: web.Application | None = None
         self._runner: web.AppRunner | None = None
         self._session_id: str | None = None
+        self._retry_count = 0
+        self._max_retries = 3
+        self._session_lock = asyncio.Lock()
 
     async def start(self) -> None:
         """Start the HTTP proxy server."""
@@ -75,20 +80,79 @@ class DetentProxy:
             "session_id": self._session_id or "none",
         })
 
+    async def _save_session_state(self) -> None:
+        """Persist session state to file."""
+        if not self._session_id:
+            return
+
+        self.session_dir.mkdir(parents=True, exist_ok=True)
+        session_file = self.session_dir / "default.json"
+
+        state = {
+            "session_id": self._session_id,
+            "started_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        session_file.write_text(json.dumps(state, indent=2))
+        logger.debug("[proxy] session state saved to %s", session_file)
+
+    async def _forward_with_retry(
+        self,
+        method: str,
+        url: str,
+        headers: dict,
+        body: bytes | None,
+    ) -> tuple[int, dict, bytes]:
+        """Forward request with exponential backoff retry on connection failure.
+
+        Args:
+            method, url, headers, body: Request details
+
+        Returns:
+            (status_code, response_headers, response_body)
+
+        Raises:
+            Exception if all retries exhausted
+        """
+        backoffs = [0.1, 0.2, 0.4]  # 100ms, 200ms, 400ms
+
+        for attempt in range(self._max_retries):
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.request(
+                        method,
+                        url,
+                        data=body,
+                        headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=self.timeout_s),
+                    ) as resp:
+                        response_body = await resp.read()
+                        return resp.status, dict(resp.headers), response_body
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                if attempt < self._max_retries - 1:
+                    wait = backoffs[attempt]
+                    logger.warning(
+                        "[proxy] request failed (attempt %d/%d), retrying in %.1fs: %s",
+                        attempt + 1,
+                        self._max_retries,
+                        wait,
+                        e,
+                    )
+                    await asyncio.sleep(wait)
+                else:
+                    logger.error("[proxy] request failed after %d attempts: %s", self._max_retries, e)
+                    raise
+
     async def _proxy_handler(self, request: web.Request) -> web.Response:
-        """Forward request to upstream, preserving method, headers, body."""
+        """Forward request to upstream with retry logic."""
         method = request.method
         path = request.match_info.get("path_info", "")
 
-        # Reconstruct upstream URL
         upstream_url = f"{self.upstream_url}/{path}"
         if request.query_string:
             upstream_url += f"?{request.query_string}"
 
-        # Forward body if present
         body = await request.read() if method in ("POST", "PUT", "PATCH") else None
-
-        # Forward headers (skip hop-by-hop headers)
         headers = {
             k: v
             for k, v in request.headers.items()
@@ -96,34 +160,13 @@ class DetentProxy:
         }
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.request(
-                    method,
-                    upstream_url,
-                    data=body,
-                    headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=self.timeout_s),
-                ) as upstream_resp:
-                    response_body = await upstream_resp.read()
-
-                    # Return upstream response with same status and headers
-                    return web.Response(
-                        body=response_body,
-                        status=upstream_resp.status,
-                        headers=dict(upstream_resp.headers),
-                    )
-        except asyncio.TimeoutError:
-            logger.error("[proxy] upstream request timeout for %s %s", method, upstream_url)
-            return web.json_response(
-                {"error": "Upstream timeout"},
-                status=504,
+            status, resp_headers, resp_body = await self._forward_with_retry(
+                method, upstream_url, headers, body
             )
+            return web.Response(body=resp_body, status=status, headers=resp_headers)
         except Exception as e:
             logger.error("[proxy] forwarding failed: %s", e)
-            return web.json_response(
-                {"error": str(e)},
-                status=502,
-            )
+            return web.json_response({"error": str(e)}, status=502)
 
     def extract_tool_calls(self, response: dict[str, Any]) -> list[dict[str, Any]]:
         """Extract tool use blocks from Anthropic API response.

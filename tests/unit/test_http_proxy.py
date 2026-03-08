@@ -1,5 +1,8 @@
 """Tests for HTTP reverse proxy."""
 
+import json
+from pathlib import Path
+
 import aiohttp
 import pytest
 from aiohttp import web
@@ -102,3 +105,21 @@ def test_extract_no_tool_calls():
 
     tool_calls = proxy.extract_tool_calls(response)
     assert tool_calls == []
+
+
+@pytest.mark.asyncio
+async def test_proxy_creates_session_state_file(tmp_path):
+    """Proxy should create and persist session state."""
+    session_dir = tmp_path / "session"
+    session_dir.mkdir()
+
+    proxy = DetentProxy(port=9995, session_dir=session_dir)
+    proxy._session_id = "sess_test_123"
+    await proxy._save_session_state()
+
+    session_file = session_dir / "default.json"
+    assert session_file.exists()
+
+    data = json.loads(session_file.read_text())
+    assert data["session_id"] == "sess_test_123"
+    assert "started_at" in data
