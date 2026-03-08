@@ -1,13 +1,13 @@
+from unittest.mock import MagicMock
+
 import pytest
+
 from detent.adapters.claude_code import ClaudeCodeAdapter
-from detent.schema import AgentAction
 
 
 @pytest.mark.asyncio
 async def test_claude_code_adapter_normalizes_write_tool():
     """ClaudeCodeAdapter should normalize Claude Code Write tool input."""
-    from unittest.mock import MagicMock
-
     adapter = ClaudeCodeAdapter(session_manager=MagicMock())
 
     raw_event = {
@@ -31,8 +31,6 @@ async def test_claude_code_adapter_normalizes_write_tool():
 @pytest.mark.asyncio
 async def test_claude_code_adapter_normalizes_bash_tool():
     """ClaudeCodeAdapter should normalize Claude Code Bash tool input."""
-    from unittest.mock import MagicMock
-
     adapter = ClaudeCodeAdapter(session_manager=MagicMock())
 
     raw_event = {
@@ -54,8 +52,6 @@ async def test_claude_code_adapter_normalizes_bash_tool():
 @pytest.mark.asyncio
 async def test_claude_code_adapter_unknown_tool_defaults_to_mcp_tool():
     """ClaudeCodeAdapter should default unknown tools to mcp_tool (safe default)."""
-    from unittest.mock import MagicMock
-
     adapter = ClaudeCodeAdapter(session_manager=MagicMock())
 
     raw_event = {

@@ -38,6 +38,7 @@ class ClaudeCodeAdapter(AgentAdapter):
             "Edit": ActionType.FILE_WRITE,
             "Bash": ActionType.SHELL_EXEC,
             "Read": ActionType.FILE_READ,
+            "WebFetch": ActionType.WEB_FETCH,
         }
         action_type = action_type_map.get(tool_name, ActionType.MCP_TOOL)
 
