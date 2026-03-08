@@ -460,6 +460,89 @@ Mock the agent's raw event format and verify normalization produces correct `Age
 
 ---
 
+## Implementation — v0.1 Phase 6
+
+### HTTP Proxy (`DetentProxy`)
+
+Located: `detent/proxy/http_proxy.py`
+
+- Listens on `127.0.0.1:{DETENT_PROXY_PORT}` (default 7070)
+- Forwards requests transparently to upstream LLM API (`DETENT_PROXY_UPSTREAM`)
+- Extracts tool use blocks from Anthropic API responses before returning to client
+- Implements retry logic with exponential backoff (3 retries: 100ms, 200ms, 400ms)
+- Request timeout: `DETENT_PROXY_TIMEOUT_S` (default 5s)
+- Persists session state to `.detent/session/default.json`
+- Health endpoint: `GET /health` → `{"status": "ok", "session_id": "..."}`
+
+**Key Methods:**
+- `start()` / `stop()` — server lifecycle
+- `extract_tool_calls(response)` — extract tool use from Anthropic format
+- `_forward_with_retry(...)` — forward with retry logic
+
+### IPC Control Channel (`IPCControlChannel`)
+
+Located: `detent/ipc/channel.py`
+
+- Unix domain socket at `.detent/run/control.sock` (configurable)
+- NDJSON protocol: each message is JSON + `\n`
+- Timeout: `DETENT_IPC_TIMEOUT_MS` (default 4000ms)
+
+**Message Types:**
+- `session_start` — session created
+- `tool_intercepted` — tool call extracted, awaiting verification
+- `verification_result` — pipeline result (pass/fail)
+- `rollback_instruction` — rollback command + feedback
+- `session_error` — error during verification
+- `session_end` — session closed
+
+**Key Methods:**
+- `start_server()` / `stop_server()` — server lifecycle
+- `send_message(msg)` — broadcast message to all clients
+- `serialize_message(msg)` — NDJSON encoding
+
+### Session Manager (`SessionManager`)
+
+Located: `detent/proxy/session.py`
+
+Orchestrates checkpoint + pipeline + IPC messaging:
+
+- `start_session(session_id)` — initialize session, raise `DetentSessionConflictError` if active
+- `intercept_tool_call(action)` → creates checkpoint → runs pipeline → on fail: rollback + IPC notification
+- `end_session()` — clean up, close IPC
+
+Integrates:
+- `CheckpointEngine` for SAVEPOINT management
+- `VerificationPipeline` for verification stages
+- `IPCControlChannel` for async messaging
+- `FeedbackSynthesizer` for LLM-optimized feedback
+
+### Configuration
+
+Environment variables override defaults in `detent.yaml`:
+
+```bash
+DETENT_PROXY_PORT=7070                      # Proxy listen port
+DETENT_PROXY_UPSTREAM=https://api.anthropic.com
+DETENT_PROXY_TIMEOUT_S=5                   # Request timeout
+DETENT_IPC_SOCKET=.detent/run/control.sock
+DETENT_IPC_TIMEOUT_MS=4000
+DETENT_SESSION_DIR=.detent/session
+```
+
+### Testing
+
+**Unit tests:**
+- `tests/unit/test_http_proxy.py` — proxy forwarding, tool extraction, retry logic, health endpoint
+- `tests/unit/test_ipc_channel.py` — NDJSON serialization, connection lifecycle, timeout
+- `tests/unit/test_session_manager.py` — session lifecycle, checkpoint creation, pipeline integration
+
+**Integration tests:**
+- `tests/integration/test_proxy_ipc_full_flow.py` — full flow with real checkpoint engine and pipeline
+
+**Coverage:** 160 tests total (150 unit + 10 integration), >85% coverage for proxy, IPC, session manager
+
+---
+
 ## Testing Stages & Adapters
 
 ### Unit tests
