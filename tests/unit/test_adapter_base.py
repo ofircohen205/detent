@@ -11,7 +11,10 @@ from detent.schema import AgentAction
 class MockAdapter(AgentAdapter):
     """Mock adapter for testing base class functionality."""
 
-    agent_name = "test-agent"
+    @property
+    def agent_name(self) -> str:
+        """Return the adapter name."""
+        return "test-agent"
 
     async def intercept(self, raw_event: dict) -> AgentAction:
         """Normalize raw event to AgentAction."""
@@ -28,10 +31,17 @@ class MockAdapter(AgentAdapter):
 
 
 def test_adapter_base_abstract():
-    """AgentAdapter should be abstract and require agent_name."""
+    """AgentAdapter should be abstract and require implementation."""
     mock_session_manager = MagicMock()
     with pytest.raises(TypeError):
         AgentAdapter(session_manager=mock_session_manager)  # Should fail: abstract class
+
+
+def test_adapter_agent_name_is_abstract():
+    """Concrete adapter must implement agent_name property."""
+    mock_session_manager = MagicMock()
+    adapter = MockAdapter(session_manager=mock_session_manager)
+    assert adapter.agent_name == "test-agent"
 
 
 @pytest.mark.asyncio
