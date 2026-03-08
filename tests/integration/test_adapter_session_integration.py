@@ -150,7 +150,7 @@ async def test_claude_code_adapter_with_session_manager_invalid_syntax(
 
     # Create test file
     test_file = tmp_path / "broken.py"
-    test_file.write_text('x = 1\n')
+    test_file.write_text("x = 1\n")
 
     # Start session
     session_id = "sess_claude_code_invalid"
