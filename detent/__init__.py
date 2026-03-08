@@ -18,9 +18,14 @@ from detent.stages.syntax import SyntaxStage
 from detent.stages.tests import TestsStage
 from detent.stages.typecheck import TypecheckStage
 
+# Proxy and IPC
+from detent.proxy.types import DetentSessionConflictError, IPCMessageType
+
 __all__ = [
     "__version__",
+    "DetentSessionConflictError",
     "Finding",
+    "IPCMessageType",
     "LintStage",
     "SyntaxStage",
     "TestsStage",
