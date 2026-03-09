@@ -45,6 +45,7 @@ backend/*.egg-info/
 # OS
 .DS_Store
 Thumbs.db
+.claude/
 
 # Secrets
 .secrets.baseline
