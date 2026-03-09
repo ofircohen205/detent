@@ -55,5 +55,16 @@ jobs:
 
       - name: Scan for secrets drift
         run: |
-          detect-secrets scan --baseline .secrets.baseline
-          git diff --exit-code .secrets.baseline
+          detect-secrets scan > /tmp/new_baseline.json
+          # Compare only the results field — generated_at timestamp is intentionally excluded
+          COMMITTED=$(python -c "import json,sys; print(json.dumps(json.load(open('.secrets.baseline'))['results'], sort_keys=True))")
+          CURRENT=$(python -c "import json,sys; print(json.dumps(json.load(open('/tmp/new_baseline.json'))['results'], sort_keys=True))")
+          if [ "$COMMITTED" != "$CURRENT" ]; then
+            echo "ERROR: New secrets detected or existing secrets removed. Update .secrets.baseline."
+            echo "--- committed results ---"
+            echo "$COMMITTED"
+            echo "--- current results ---"
+            echo "$CURRENT"
+            exit 1
+          fi
+          echo "No secrets drift detected."
