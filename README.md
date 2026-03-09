@@ -18,21 +18,22 @@ You need a **protocol-level verification layer** that intercepts tool calls in r
 
 ```mermaid
 flowchart TD
-    Agent["🤖 AI Agent<br/>(e.g., Claude Code, Cursor)"]
+    Agent["🤖 AI Agent (e.g., Claude Code, Cursor)"]
 
-    subgraph Detent ["Detent Verification Runtime"]
+    subgraph Detent[Detent Verification Runtime]
         direction TB
         S1["1. Create SAVEPOINT (checkpoint)"]
-        S2["2. Run Verification Pipeline:<br/>   - Syntax check (tree-sitter)<br/>   - Lint (ruff)<br/>   - Type check (mypy)<br/>   - Test execution (pytest)"]
+        S2["2. Run Verification Pipeline:<br>- Syntax check (tree-sitter)<br>- Lint (ruff)<br>- Type check (mypy)<br>- Test execution (pytest)"]
         S3["3. Synthesize feedback"]
-        S1 --> S2 --> S3
+        S1 --> S2
+        S2 --> S3
     end
 
-    FS[("💾 Filesystem<br/>(protected)")]
+    FS[("💾 Filesystem (protected)")]
 
-    Agent -->|"tool call: Write('src/main.py', content)"| S1
-    S3 -->|"✅ passed? → allow write"| FS
-    S3 -.->|"❌ failed? → rollback"| S1
+    Agent -->|tool call: Write src/main.py, content| S1
+    S3 -->|✅ passed? → allow write| FS
+    S3 -.->|❌ failed? → rollback| S1
 ```
 
 ## Key Features
