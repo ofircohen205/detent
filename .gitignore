@@ -48,7 +48,7 @@ Thumbs.db
 .claude/
 
 # Secrets
-.secrets.baseline
+# .secrets.baseline is intentionally tracked — it defines the known-secrets baseline for detect-secrets CI
 
 
 # Tmp
