@@ -20,7 +20,7 @@ async def test_proxy_starts_and_stops():
 
 @pytest.mark.asyncio
 async def test_proxy_health_endpoint():
-    """GET /health should return status and session_id."""
+    """GET /health should return status ok (no session_id exposed)."""
     proxy = DetentProxy(port=9998, upstream_url="https://api.anthropic.com")
     await proxy.start()
 
@@ -29,9 +29,25 @@ async def test_proxy_health_endpoint():
             assert resp.status == 200
             data = await resp.json()
             assert data["status"] == "ok"
-            assert "session_id" in data
+            assert "session_id" not in data
     finally:
         await proxy.stop()
+
+
+def test_proxy_rejects_unlisted_upstream_host() -> None:
+    """DetentProxy raises ValueError for non-allowlisted upstream URLs."""
+    with pytest.raises(ValueError, match="not in allowlist"):
+        DetentProxy(upstream_url="https://evil.attacker.com")
+
+
+def test_proxy_accepts_anthropic_upstream() -> None:
+    proxy = DetentProxy(upstream_url="https://api.anthropic.com")
+    assert proxy.upstream_url == "https://api.anthropic.com"
+
+
+def test_proxy_accepts_openai_upstream() -> None:
+    proxy = DetentProxy(upstream_url="https://api.openai.com")
+    assert proxy.upstream_url == "https://api.openai.com"
 
 
 def test_extract_tool_calls_from_anthropic_response():
