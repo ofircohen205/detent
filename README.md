@@ -20,7 +20,7 @@ You need a **protocol-level verification layer** that intercepts tool calls in r
 graph TD
     Agent["🤖 AI Agent (e.g., Claude Code, Cursor)"]
 
-    subgraph Detent Verification Runtime
+    subgraph DV["Detent Verification Runtime"]
         S1["1. Create SAVEPOINT (checkpoint)"]
         S2["2. Run Verification Pipeline:<br>- Syntax check (tree-sitter)<br>- Lint (ruff)<br>- Type check (mypy)<br>- Test execution (pytest)"]
         S3["3. Synthesize feedback"]
