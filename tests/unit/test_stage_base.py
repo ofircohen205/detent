@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import pytest
+
 from detent.pipeline.result import VerificationResult
 from detent.schema import AgentAction
-from detent.stages.base import VerificationStage
+from detent.stages.base import VerificationStage, _validate_file_path
 from tests.conftest import make_action
 
 
@@ -58,3 +60,28 @@ async def test_supports_language_default_true() -> None:
     stage = AlwaysPassStage()
     assert stage.supports_language("python") is True
     assert stage.supports_language("typescript") is True
+
+
+def test_validate_file_path_rejects_dotdot() -> None:
+    with pytest.raises(ValueError, match="traversal"):
+        _validate_file_path("src/../../../etc/passwd")
+
+
+def test_validate_file_path_rejects_null_byte() -> None:
+    with pytest.raises(ValueError, match="null byte"):
+        _validate_file_path("src/foo\x00bar.py")
+
+
+def test_validate_file_path_rejects_glob_metachar() -> None:
+    for bad in ["src/*.py", "src/fo?.py", "src/[foo].py"]:
+        with pytest.raises(ValueError, match="glob"):
+            _validate_file_path(bad)
+
+
+def test_validate_file_path_accepts_normal_paths() -> None:
+    for good in [
+        "src/main.py",
+        "/home/user/project/detent/detent/cli.py",
+        "tests/unit/test_foo.py",
+    ]:
+        _validate_file_path(good)  # must not raise

@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from detent.schema import AgentAction
 
 from detent.pipeline.result import Finding, VerificationResult
-from detent.stages.base import VerificationStage
+from detent.stages.base import VerificationStage, _validate_file_path
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +68,9 @@ class TypecheckStage(VerificationStage):
 
         file_path = action.file_path or ""
         content = action.content or ""
+
+        if file_path:
+            _validate_file_path(file_path)
 
         ext = Path(file_path).suffix.lower()
         if ext not in _SUPPORTED_EXTENSIONS:
