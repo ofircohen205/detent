@@ -309,7 +309,7 @@ git pull origin main
 
 - **How do I?** → [GitHub Discussions](https://github.com/ofircohen205/detent/discussions)
 - **I found a bug** → [GitHub Issues](https://github.com/ofircohen205/detent/issues)
-- **Security issue** → Email security@detent.dev
+- **Security issue** → [Create a Security Advisory](https://github.com/ofircohen205/detent/security/advisories/new)
 - **Something unclear?** → Open discussion or PR with clarification
 
 ---

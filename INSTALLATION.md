@@ -321,7 +321,7 @@ detent --config /path/to/detent.yaml run file.py
 
 - **Questions?** → [GitHub Discussions](https://github.com/ofircohen205/detent/discussions)
 - **Found a bug?** → [GitHub Issues](https://github.com/ofircohen205/detent/issues)
-- **Security issue?** → Email security@detent.dev
+- **Security issue?** → [Create a Security Advisory](https://github.com/ofircohen205/detent/security/advisories/new)
 
 ---
 

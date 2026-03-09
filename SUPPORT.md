@@ -36,7 +36,7 @@ Use **GitHub Issues** with tag `[FEATURE]` — best for:
 
 ### For Security Issues
 
-Email **security@detent.dev** (never public GitHub issues)
+Use **GitHub Security Advisories** (never public GitHub issues)
 
 See [SECURITY.md](./SECURITY.md) for full policy.
 

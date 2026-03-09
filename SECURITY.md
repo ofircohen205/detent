@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in Detent, please report it responsibly to **security@detent.dev** instead of opening a public GitHub issue.
+If you discover a security vulnerability in Detent, please report it responsibly by creating a private **GitHub Security Advisory** in this repository instead of opening a public GitHub issue.
 
 ### What to Include
 
@@ -72,7 +72,7 @@ The following are **not** security vulnerabilities:
 
 ## Contact
 
-**Email**: security@detent.dev
+**Report**: Create a [GitHub Security Advisory](https://github.com/ofircohen205/detent/security/advisories/new)
 **PGP**: Available upon request
 
 ---

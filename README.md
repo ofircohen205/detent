@@ -207,7 +207,7 @@ Apache License 2.0 — See [LICENSE](./LICENSE) for details.
 
 - **GitHub Discussions** — Questions, ideas, show & tell
 - **GitHub Issues** — Bugs, feature requests
-- **Email** — security@detent.dev (vulnerability reports only)
+- **Security** — Vulnerability reports via [GitHub Security Advisories](https://github.com/ofircohen205/detent/security/advisories/new)
 
 ---
 
