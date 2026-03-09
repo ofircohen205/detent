@@ -1,0 +1,70 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  bandit:
+    name: Bandit (SAST)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --extra security --dev
+
+      - name: Run Bandit
+        run: uv run bandit -r detent/ -ll -q
+
+  pip-audit:
+    name: pip-audit (CVE scan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Export runtime requirements
+        run: uv export --no-dev --no-hashes -o /tmp/requirements.txt
+
+      - name: Run pip-audit
+        run: uv run pip-audit -r /tmp/requirements.txt
+
+  secrets:
+    name: detect-secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install detect-secrets
+        run: pip install detect-secrets
+
+      - name: Scan for secrets drift
+        run: |
+          detect-secrets scan > /tmp/new_baseline.json
+          # Compare only the results field — generated_at timestamp is intentionally excluded
+          COMMITTED=$(python -c "import json,sys; print(json.dumps(json.load(open('.secrets.baseline'))['results'], sort_keys=True))")
+          CURRENT=$(python -c "import json,sys; print(json.dumps(json.load(open('/tmp/new_baseline.json'))['results'], sort_keys=True))")
+          if [ "$COMMITTED" != "$CURRENT" ]; then
+            echo "ERROR: New secrets detected or existing secrets removed. Update .secrets.baseline."
+            echo "--- committed results ---"
+            echo "$COMMITTED"
+            echo "--- current results ---"
+            echo "$CURRENT"
+            exit 1
+          fi
+          echo "No secrets drift detected."

@@ -23,6 +23,7 @@ If none found, skip gracefully (return passed with skipped metadata).
 from __future__ import annotations
 
 import asyncio
+import glob as _glob
 import logging
 import sys
 import time
@@ -33,7 +34,7 @@ if TYPE_CHECKING:
     from detent.schema import AgentAction
 
 from detent.pipeline.result import Finding, VerificationResult
-from detent.stages.base import VerificationStage
+from detent.stages.base import VerificationStage, _validate_file_path
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,8 @@ class TestsStage(VerificationStage):
         start = time.perf_counter()
 
         file_path = action.file_path or ""
+        if file_path:
+            _validate_file_path(file_path)
         if not file_path:
             duration_ms = (time.perf_counter() - start) * 1000
             return VerificationResult(
@@ -127,7 +130,7 @@ class TestsStage(VerificationStage):
         for _ in range(_MAX_WALK_DEPTH):
             tests_dir = candidate / "tests"
             if tests_dir.is_dir():
-                matches = list(tests_dir.rglob(f"test_{stem}.py"))
+                matches = list(tests_dir.rglob(f"test_{_glob.escape(stem)}.py"))
                 if matches:
                     return matches
             parent = candidate.parent

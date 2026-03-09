@@ -35,7 +35,13 @@ dev = [
     "pytest-cov>=6.0,<7",
     "ruff>=0.9,<1",
     "mypy>=1.14,<2",
+    "mypy-extensions>=1.0",
     "types-PyYAML>=6.0",
+    "twine>=6.1.0",
+]
+security = [
+    "bandit>=1.9.4",
+    "pip-audit>=2.10.0",
 ]
 
 [project.scripts]

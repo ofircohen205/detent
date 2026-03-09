@@ -287,3 +287,36 @@ async def test_checkpoint_engine_discard_cleans_shadow(tmp_path: Path) -> None:
     await engine.discard("chk_001")
 
     assert not (shadow_path / "snapshots" / "chk_001").exists()
+
+
+@pytest.mark.asyncio
+async def test_shadow_git_commit_rejects_path_traversal(tmp_path: Path) -> None:
+    """ShadowGit.commit() must reject path traversal attempts."""
+    shadow = ShadowGit(tmp_path / "shadow")
+    await shadow.init()
+    snap = FileSnapshot(
+        path="/../../../tmp/evil.sh",
+        content=b"evil",
+        existed=False,
+        permissions=0o644,
+    )
+    with pytest.raises(ValueError, match="Path traversal"):
+        await shadow.commit("chk_000", [snap])
+
+
+@pytest.mark.asyncio
+async def test_shadow_git_restore_rejects_path_traversal(tmp_path: Path) -> None:
+    """ShadowGit.restore() must reject path traversal in stored meta.json."""
+    import json
+
+    shadow = ShadowGit(tmp_path / "shadow")
+    await shadow.init()
+
+    snapshot_dir = shadow._repo / "snapshots" / "chk_evil"
+    files_dir = snapshot_dir / "files"
+    files_dir.mkdir(parents=True)
+    meta = [{"path": "/../../../tmp/evil.sh", "existed": False, "permissions": None, "has_content": True}]
+    (snapshot_dir / "meta.json").write_text(json.dumps(meta))
+
+    with pytest.raises(ValueError, match="Path traversal"):
+        await shadow.restore("chk_evil")

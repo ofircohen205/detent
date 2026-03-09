@@ -30,6 +30,23 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _validate_file_path(path: str) -> None:
+    """Reject file_path values that could cause traversal or injection.
+
+    Raises:
+        ValueError: If the path contains null bytes, path traversal segments,
+            or glob metacharacters.
+    """
+    if "\x00" in path:
+        raise ValueError(f"file_path contains null byte: {path!r}")
+    parts = path.replace("\\", "/").split("/")
+    if ".." in parts:
+        raise ValueError(f"file_path contains path traversal: {path!r}")
+    for char in ("*", "?", "[", "]"):
+        if char in path:
+            raise ValueError(f"file_path contains glob metacharacter {char!r}: {path!r}")
+
+
 class VerificationStage(ABC):
     """Base class for a single verification stage.
 

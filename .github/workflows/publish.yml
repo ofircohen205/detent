@@ -31,9 +31,53 @@ jobs:
           path: dist/
           if-no-files-found: error
 
+  preflight:
+    name: Pre-flight checks
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install all dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Run tests
+        run: uv run pytest tests/ -q --tb=short
+
+      - name: Run linting
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Run type checking
+        run: uv run mypy detent/
+
+      - name: Run Bandit (SAST)
+        run: uv run bandit -r detent/ -ll -q
+
+      - name: Export runtime requirements
+        run: uv export --no-dev --no-hashes -o /tmp/requirements.txt
+
+      - name: Run pip-audit (CVE scan)
+        run: uv run pip-audit -r /tmp/requirements.txt
+
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Twine check
+        run: uv run twine check dist/*
+
   publish-pypi:
     name: Publish to PyPI
-    needs: build
+    needs: [build, preflight]
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -56,7 +100,7 @@ jobs:
 
   publish-testpypi:
     name: Publish to TestPyPI
-    needs: build
+    needs: [build, preflight]
     runs-on: ubuntu-latest
     environment:
       name: testpypi

@@ -23,11 +23,14 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import aiohttp
 from aiohttp import web
 
 logger = logging.getLogger(__name__)
+
+_ALLOWED_UPSTREAM_HOSTS: frozenset[str] = frozenset({"api.anthropic.com", "api.openai.com"})
 
 
 class DetentProxy:
@@ -53,6 +56,9 @@ class DetentProxy:
             session_dir: Directory for session state files (default .detent/session)
         """
         self.port = port
+        _host = urlparse(upstream_url).hostname or ""
+        if _host not in _ALLOWED_UPSTREAM_HOSTS:
+            raise ValueError(f"upstream_url host {_host!r} is not in allowlist: {sorted(_ALLOWED_UPSTREAM_HOSTS)}")
         self.upstream_url = upstream_url
         self.timeout_s = timeout_s
         self.session_dir = Path(session_dir or ".detent/session")
@@ -88,12 +94,7 @@ class DetentProxy:
 
     async def _health_handler(self, request: web.Request) -> web.Response:
         """Handle GET /health."""
-        return web.json_response(
-            {
-                "status": "ok",
-                "session_id": self._session_id or "none",
-            }
-        )
+        return web.json_response({"status": "ok"})
 
     async def _save_session_state(self) -> None:
         """Persist session state to file."""
@@ -185,7 +186,7 @@ class DetentProxy:
             return web.Response(body=resp_body, status=status, headers=resp_headers)
         except Exception as e:
             logger.error("[proxy] forwarding failed: %s", e)
-            return web.json_response({"error": str(e)}, status=502)
+            return web.json_response({"error": "Upstream connection failed"}, status=502)
 
     def extract_tool_calls(self, response: dict[str, Any]) -> list[dict[str, Any]]:
         """Extract tool use blocks from Anthropic API response.
