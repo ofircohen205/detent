@@ -16,32 +16,23 @@ You need a **protocol-level verification layer** that intercepts tool calls in r
 
 ## What Detent Does
 
-```
-┌─────────────────┐
-│   AI Agent      │
-│  (Claude Code)  │
-└────────┬────────┘
-         │ tool call: Write("src/main.py", content)
-         ▼
-┌─────────────────────────────────────┐
-│     Detent Verification Runtime     │
-│  ┌─────────────────────────────────┐│
-│  │ 1. Create SAVEPOINT (checkpoint)││
-│  │ 2. Run Verification Pipeline:   ││
-│  │    - Syntax check (tree-sitter) ││
-│  │    - Lint (ruff)                ││
-│  │    - Type check (mypy)          ││
-│  │    - Test execution (pytest)    ││
-│  │ 3. Synthesize feedback          ││
-│  └─────────────────────────────────┘│
-└────────┬────────────────────────────┘
-         │ ✅ passed? → allow write
-         │ ❌ failed? → rollback
-         ▼
-┌─────────────────┐
-│  Filesystem     │
-│  (protected)    │
-└─────────────────┘
+```mermaid
+flowchart TD
+    Agent["🤖 AI Agent<br/>(e.g., Claude Code, Cursor)"]
+
+    subgraph Detent ["Detent Verification Runtime"]
+        direction TB
+        S1["1. Create SAVEPOINT (checkpoint)"]
+        S2["2. Run Verification Pipeline:<br/>   - Syntax check (tree-sitter)<br/>   - Lint (ruff)<br/>   - Type check (mypy)<br/>   - Test execution (pytest)"]
+        S3["3. Synthesize feedback"]
+        S1 --> S2 --> S3
+    end
+
+    FS[("💾 Filesystem<br/>(protected)")]
+
+    Agent -->|"tool call: Write('src/main.py', content)"| S1
+    S3 -->|"✅ passed? → allow write"| FS
+    S3 -.->|"❌ failed? → rollback"| S1
 ```
 
 ## Key Features
