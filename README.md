@@ -17,21 +17,20 @@ You need a **protocol-level verification layer** that intercepts tool calls in r
 ## What Detent Does
 
 ```mermaid
-flowchart TD
+graph TD
     Agent["🤖 AI Agent (e.g., Claude Code, Cursor)"]
 
-    subgraph Detent[Detent Verification Runtime]
-        direction TB
+    subgraph Detent Verification Runtime
         S1["1. Create SAVEPOINT (checkpoint)"]
         S2["2. Run Verification Pipeline:<br>- Syntax check (tree-sitter)<br>- Lint (ruff)<br>- Type check (mypy)<br>- Test execution (pytest)"]
         S3["3. Synthesize feedback"]
-        S1 --> S2
-        S2 --> S3
     end
 
     FS[("💾 Filesystem (protected)")]
 
     Agent -->|tool call: Write src/main.py, content| S1
+    S1 --> S2
+    S2 --> S3
     S3 -->|✅ passed? → allow write| FS
     S3 -.->|❌ failed? → rollback| S1
 ```
