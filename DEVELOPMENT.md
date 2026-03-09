@@ -57,10 +57,11 @@ detent/
 git clone https://github.com/ofircohen205/detent.git
 cd detent
 
-# Install all dependencies (including dev extras)
+# Install all dependencies (including dev extras and pre-commit hooks)
 make install
 # Or manually:
 uv sync --all-extras --dev
+uv run pre-commit install
 ```
 
 ### Using Make (Recommended)
@@ -135,6 +136,8 @@ uv run ruff format detent/       # Format (in-place)
 uv run mypy detent/              # Type check
 uv run pytest tests/ -v          # Tests
 ```
+
+> **Note:** The project uses `pre-commit` to automatically run Ruff and prevent commits directly to the `main` branch. This is installed automatically if you ran `make install` or `uv run pre-commit install`.
 
 ## Git Workflow
 

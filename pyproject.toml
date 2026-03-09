@@ -72,3 +72,8 @@ markers = [
     "unit: fast unit tests (no external deps)",
     "integration: full pipeline tests (requires tools installed)",
 ]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5.1",
+]

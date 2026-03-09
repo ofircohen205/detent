@@ -27,8 +27,9 @@ help: ## Show this help message
 
 # ─── Development ──────────────────────────────────────────────────────────────
 
-install: ## Install all dependencies (including dev extras)
+install: ## Install all dependencies (including dev extras) and setup pre-commit
 	uv sync --all-extras --dev
+	uv run pre-commit install
 
 dev: install ## Alias for install (sets up dev environment)
 
