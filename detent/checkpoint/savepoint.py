@@ -109,7 +109,9 @@ class ShadowGit:
                 }
             )
             if snap.content is not None:
-                dest = files_dir / snap.path.lstrip("/")
+                dest = (files_dir / snap.path.lstrip("/")).resolve()
+                if not dest.is_relative_to(files_dir.resolve()):
+                    raise ValueError(f"Path traversal detected in savepoint path: {snap.path!r}")
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(snap.content)
 
@@ -146,7 +148,9 @@ class ShadowGit:
         for entry in meta:
             content: bytes | None = None
             if entry["has_content"]:
-                blob = files_dir / entry["path"].lstrip("/")
+                blob = (files_dir / entry["path"].lstrip("/")).resolve()
+                if not blob.is_relative_to(files_dir.resolve()):
+                    raise ValueError(f"Path traversal detected in snapshot path: {entry['path']!r}")
                 content = blob.read_bytes() if blob.exists() else None
             snapshots.append(
                 FileSnapshot(
