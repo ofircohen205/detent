@@ -21,7 +21,10 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass
-from pathlib import Path  # noqa: TC003
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @dataclass
