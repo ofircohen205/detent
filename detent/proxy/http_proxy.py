@@ -46,7 +46,7 @@ class DetentProxy:
         self,
         port: int = 7070,
         upstream_url: str = "https://api.anthropic.com",
-        timeout_s: int = 5,
+        connect_timeout_s: float = 10.0,
         session_dir: Path | str | None = None,
         ssl_context: ssl.SSLContext | None = None,
     ) -> None:
@@ -55,7 +55,8 @@ class DetentProxy:
         Args:
             port: Port to listen on (default 7070)
             upstream_url: Upstream LLM API base URL
-            timeout_s: Request timeout in seconds
+            connect_timeout_s: TCP connect timeout in seconds (default 10). No total
+                timeout is applied — LLM API calls can stream for minutes.
             session_dir: Directory for session state files (default .detent/session)
             ssl_context: Custom SSL context for upstream connections. Defaults to
                 a context using the certifi CA bundle, which avoids macOS keychain issues.
@@ -65,7 +66,7 @@ class DetentProxy:
         if _host not in _ALLOWED_UPSTREAM_HOSTS:
             raise ValueError(f"upstream_url host {_host!r} is not in allowlist: {sorted(_ALLOWED_UPSTREAM_HOSTS)}")
         self.upstream_url = upstream_url
-        self.timeout_s = timeout_s
+        self.connect_timeout_s = connect_timeout_s
         self.session_dir = Path(session_dir or ".detent/session")
         self.is_running = False
         self._app: web.Application | None = None
@@ -151,7 +152,10 @@ class DetentProxy:
                         url,
                         data=body,
                         headers=headers,
-                        timeout=aiohttp.ClientTimeout(total=self.timeout_s),
+                        timeout=aiohttp.ClientTimeout(
+                            connect=self.connect_timeout_s,
+                            total=None,  # no total timeout — LLM calls can stream for minutes
+                        ),
                     ) as resp,
                 ):
                     response_body = await resp.read()
