@@ -461,6 +461,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
+    { name = "certifi" },
     { name = "click" },
     { name = "pydantic" },
     { name = "pyyaml" },
@@ -494,6 +495,7 @@ dev = [
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.9,<4" },
     { name = "bandit", marker = "extra == 'security'", specifier = ">=1.9.4" },
+    { name = "certifi", specifier = ">=2024.0" },
     { name = "click", specifier = ">=8.1,<9" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14,<2" },
     { name = "mypy-extensions", marker = "extra == 'dev'", specifier = ">=1.0" },

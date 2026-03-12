@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-03-12
+
+### Fixed
+
+- **HTTP proxy SSL certificate verification** — `DetentProxy` now creates an `aiohttp.TCPConnector` backed by a `certifi`-based SSL context, resolving `CERTIFICATE_VERIFY_FAILED` errors on macOS where Python's default ssl module does not load the system keychain. A custom `ssl.SSLContext` can be passed via the new `ssl_context` constructor parameter.
+
+### Changed
+
+- Added `certifi>=2024.0` as an explicit direct dependency (was previously only a transitive dependency via `aiohttp`).
+
 ## [0.1.0] - 2026-03-08
 
 ### Added
