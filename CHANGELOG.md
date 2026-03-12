@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-03-12
+
+### Fixed
+
+- **HTTP proxy timeout** — Replaced `ClientTimeout(total=5s)` with `ClientTimeout(connect=10s, total=None)` so long-running LLM API calls (streaming responses that take 20-60+ seconds) no longer time out and return 502. The parameter is renamed from `timeout_s` to `connect_timeout_s` to clarify its scope.
+
 ## [0.1.1] - 2026-03-12
 
 ### Fixed
