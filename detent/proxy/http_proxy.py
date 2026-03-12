@@ -20,12 +20,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import ssl
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
 import aiohttp
+import certifi
 from aiohttp import web
 
 logger = logging.getLogger(__name__)
@@ -46,6 +48,7 @@ class DetentProxy:
         upstream_url: str = "https://api.anthropic.com",
         timeout_s: int = 5,
         session_dir: Path | str | None = None,
+        ssl_context: ssl.SSLContext | None = None,
     ) -> None:
         """Initialize HTTP proxy.
 
@@ -54,6 +57,8 @@ class DetentProxy:
             upstream_url: Upstream LLM API base URL
             timeout_s: Request timeout in seconds
             session_dir: Directory for session state files (default .detent/session)
+            ssl_context: Custom SSL context for upstream connections. Defaults to
+                a context using the certifi CA bundle, which avoids macOS keychain issues.
         """
         self.port = port
         _host = urlparse(upstream_url).hostname or ""
@@ -69,6 +74,10 @@ class DetentProxy:
         self._retry_count = 0
         self._max_retries = 3
         self._session_lock = asyncio.Lock()
+        if ssl_context is not None:
+            self._ssl_context = ssl_context
+        else:
+            self._ssl_context = ssl.create_default_context(cafile=certifi.where())
 
     async def start(self) -> None:
         """Start the HTTP proxy server."""
@@ -134,8 +143,9 @@ class DetentProxy:
 
         for attempt in range(self._max_retries):
             try:
+                connector = aiohttp.TCPConnector(ssl=self._ssl_context)
                 async with (
-                    aiohttp.ClientSession() as session,
+                    aiohttp.ClientSession(connector=connector) as session,
                     session.request(
                         method,
                         url,
