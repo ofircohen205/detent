@@ -126,14 +126,16 @@ def test_config_path_propagated_to_run(tmp_path: pathlib.Path) -> None:
     target_file.write_text("x = 1\n")
 
     runner = CliRunner()
-    with patch("detent.cli.run.DetentConfig") as mock_cfg:
-        mock_cfg.load.return_value = MagicMock(
+    with patch("detent.cli.app.DetentConfig") as mock_app_cfg, patch("detent.cli.run.DetentConfig") as mock_run_cfg:
+        mock_app_cfg.load.return_value = MagicMock(
             policy="standard",
             pipeline=MagicMock(stages=[]),
             get_enabled_stages=lambda: [],
+            telemetry=MagicMock(enabled=False),
         )
         runner.invoke(main, ["--config", str(config_file), "run", str(target_file)])
-        mock_cfg.load.assert_called_once_with(path=str(config_file))
+        mock_app_cfg.load.assert_called_once_with(path=str(config_file))
+        mock_run_cfg.load.assert_not_called()
 
 
 def test_no_config_flag_passes_none_to_run(tmp_path: pathlib.Path) -> None:
@@ -144,14 +146,16 @@ def test_no_config_flag_passes_none_to_run(tmp_path: pathlib.Path) -> None:
     target_file.write_text("x = 1\n")
 
     runner = CliRunner()
-    with patch("detent.cli.run.DetentConfig") as mock_cfg:
-        mock_cfg.load.return_value = MagicMock(
+    with patch("detent.cli.app.DetentConfig") as mock_app_cfg, patch("detent.cli.run.DetentConfig") as mock_run_cfg:
+        mock_app_cfg.load.return_value = MagicMock(
             policy="standard",
             pipeline=MagicMock(stages=[]),
             get_enabled_stages=lambda: [],
+            telemetry=MagicMock(enabled=False),
         )
         runner.invoke(main, ["run", str(target_file)])
-        mock_cfg.load.assert_called_once_with(path=None)
+        mock_app_cfg.load.assert_called_once_with(path=None)
+        mock_run_cfg.load.assert_not_called()
 
 
 def test_config_envvar_accepted(tmp_path: pathlib.Path) -> None:

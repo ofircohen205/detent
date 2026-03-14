@@ -98,7 +98,9 @@ def test_all_in_all():
         "TestsStage",
         "AgentAdapter",
         "ClaudeCodeAdapter",
+        "CircuitBreaker",
         "LangGraphAdapter",
+        "TelemetryConfig",
         "DetentSessionConflictError",
         "IPCMessageType",
     }

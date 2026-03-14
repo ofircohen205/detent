@@ -46,6 +46,10 @@ security = [
     "bandit>=1.9.4",
     "semgrep>=1.60",
 ]
+telemetry = [
+    "opentelemetry-sdk>=1.20",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.20",
+]
 
 [project.scripts]
 detent = "detent.cli:main"

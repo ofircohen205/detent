@@ -29,6 +29,8 @@ if TYPE_CHECKING:
     from detent.schema import AgentAction
 
 from detent.feedback.synthesizer import FeedbackSynthesizer
+from detent.observability.metrics import record_rollback, record_tool_call
+from detent.observability.tracer import get_tracer
 from detent.pipeline.result import VerificationResult
 from detent.proxy.types import DetentSessionConflictError, IPCMessage, IPCMessageType
 
@@ -150,41 +152,55 @@ class SessionManager:
 
         # Create checkpoint reference
         checkpoint_ref = f"chk_before_write_{len(self._checkpoint_refs):03d}"
+        tracer = get_tracer(__name__)
+        span_attrs = {
+            "detent.session_id": self.session_id,
+            "detent.tool_call_id": action.tool_call_id,
+            "detent.action_type": action.action_type,
+            "detent.agent": action.agent,
+            "detent.risk_level": action.risk_level.value,
+            "detent.file_path": action.file_path or "<unknown>",
+        }
 
         try:
-            # Create SAVEPOINT before running pipeline
-            files = [action.file_path] if action.file_path else []
-            await self.checkpoint_engine.savepoint(checkpoint_ref, files)
+            with tracer.start_as_current_span("detent.tool_call", attributes=span_attrs) as span:
+                # Create SAVEPOINT before running pipeline
+                files = [action.file_path] if action.file_path else []
+                await self.checkpoint_engine.savepoint(checkpoint_ref, files)
 
-            async with self._lock:
-                self._checkpoint_refs.append(checkpoint_ref)
+                async with self._lock:
+                    self._checkpoint_refs.append(checkpoint_ref)
 
-            logger.info("[session] created checkpoint %s", checkpoint_ref)
+                logger.info("[session] created checkpoint %s", checkpoint_ref)
 
-            # Update action with checkpoint ref
-            action.checkpoint_ref = checkpoint_ref
+                # Update action with checkpoint ref
+                action.checkpoint_ref = checkpoint_ref
+                span.set_attribute("detent.checkpoint_ref", checkpoint_ref)
 
-            # Notify IPC of intercepted tool
-            await self.ipc_channel.send_message(
-                IPCMessage(
-                    type=IPCMessageType.TOOL_INTERCEPTED,
-                    data={
-                        "tool_call_id": action.tool_call_id,
-                        "action": action.model_dump(),
-                    },
-                    timestamp=datetime.now(UTC).isoformat(),
+                # Notify IPC of intercepted tool
+                await self.ipc_channel.send_message(
+                    IPCMessage(
+                        type=IPCMessageType.TOOL_INTERCEPTED,
+                        data={
+                            "tool_call_id": action.tool_call_id,
+                            "action": action.model_dump(),
+                        },
+                        timestamp=datetime.now(UTC).isoformat(),
+                    )
                 )
-            )
 
-            # Run verification pipeline
-            result = await self.pipeline.run(action)
+                # Run verification pipeline
+                result = await self.pipeline.run(action)
 
-            if result.passed:
-                await self._on_verification_pass(action, result)
-            else:
-                await self._on_verification_fail(action, result, checkpoint_ref)
+                span.set_attribute("detent.tool_call.passed", result.passed)
+                record_tool_call(action.agent, action.action_type.value, result.passed)
 
-            return result
+                if result.passed:
+                    await self._on_verification_pass(action, result)
+                else:
+                    await self._on_verification_fail(action, result, checkpoint_ref)
+
+                return result
         except Exception as e:
             logger.error("[session] tool interception failed: %s", e)
             return VerificationResult(
@@ -225,6 +241,7 @@ class SessionManager:
         checkpoint_ref: str,
     ) -> None:
         """Handle verification failure."""
+        record_rollback(result.stage)
         logger.info(
             "[session] verification failed for tool %s, rolling back",
             action.tool_name,

@@ -27,6 +27,8 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field
 
+from detent.observability.tracer import get_tracer
+
 if TYPE_CHECKING:
     from detent.pipeline.result import Finding, VerificationResult
     from detent.schema import AgentAction
@@ -78,31 +80,39 @@ class FeedbackSynthesizer:
         action: AgentAction,
     ) -> StructuredFeedback:
         """Produce structured, LLM-optimized feedback from a pipeline result."""
-        logger.debug(
-            "[feedback] synthesizing for %s: passed=%s, %d finding(s)",
-            action.file_path,
-            result.passed,
-            len(result.findings),
-        )
+        tracer = get_tracer(__name__)
+        with tracer.start_as_current_span(
+            "detent.feedback.synthesize",
+            attributes={
+                "detent.checkpoint_ref": action.checkpoint_ref,
+                "detent.findings.count": len(result.findings),
+            },
+        ):
+            logger.debug(
+                "[feedback] synthesizing for %s: passed=%s, %d finding(s)",
+                action.file_path,
+                result.passed,
+                len(result.findings),
+            )
 
-        sorted_findings = sorted(
-            result.findings,
-            key=lambda f: _SEVERITY_ORDER.get(f.severity, 99),
-        )
+            sorted_findings = sorted(
+                result.findings,
+                key=lambda f: _SEVERITY_ORDER.get(f.severity, 99),
+            )
 
-        enriched = [self._enrich(f, action) for f in sorted_findings]
-        status = self._determine_status(result)
-        summary = self._generate_summary(result, action)
+            enriched = [self._enrich(f, action) for f in sorted_findings]
+            status = self._determine_status(result)
+            summary = self._generate_summary(result, action)
 
-        feedback = StructuredFeedback(
-            status=status,
-            checkpoint=action.checkpoint_ref,
-            summary=summary,
-            findings=enriched,
-            rollback_applied=False,
-        )
-        logger.info("[feedback] status=%s, %d enriched finding(s)", status, len(enriched))
-        return feedback
+            feedback = StructuredFeedback(
+                status=status,
+                checkpoint=action.checkpoint_ref,
+                summary=summary,
+                findings=enriched,
+                rollback_applied=False,
+            )
+            logger.info("[feedback] status=%s, %d enriched finding(s)", status, len(enriched))
+            return feedback
 
     def _determine_status(self, result: VerificationResult) -> Literal["blocked", "passed", "warning"]:
         if result.has_errors:
