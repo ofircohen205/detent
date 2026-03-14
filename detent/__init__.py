@@ -34,7 +34,8 @@ from detent.adapters.langgraph import LangGraphAdapter
 from detent.adapters.litellm import LiteLLMAdapter
 from detent.adapters.openapi import OpenAPIAdapter
 from detent.checkpoint.engine import CheckpointEngine
-from detent.config import DetentConfig, PipelineConfig, ProxyConfig, StageConfig
+from detent.circuit_breaker import CircuitBreaker
+from detent.config import DetentConfig, PipelineConfig, ProxyConfig, StageConfig, TelemetryConfig
 from detent.feedback.synthesizer import (
     EnrichedFinding,
     FeedbackSynthesizer,
@@ -60,6 +61,7 @@ __all__ = [
     "ProxyConfig",
     "PipelineConfig",
     "StageConfig",
+    "TelemetryConfig",
     # Schema
     "AgentAction",
     "ActionType",
@@ -80,6 +82,7 @@ __all__ = [
     "EnrichedFinding",
     # Stages
     "VerificationStage",
+    "CircuitBreaker",
     "SyntaxStage",
     "LintStage",
     "SecurityStage",

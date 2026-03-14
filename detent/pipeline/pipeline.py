@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     from detent.schema import AgentAction
     from detent.stages.base import VerificationStage
 
+from detent.observability.metrics import record_pipeline_duration
+from detent.observability.tracer import get_tracer
 from detent.pipeline.result import Finding, VerificationResult
 
 logger = logging.getLogger(__name__)
@@ -91,38 +93,51 @@ class VerificationPipeline:
         Filters stages by language support, runs them per config, and aggregates
         all findings. Returns stage="pipeline" in the result.
         """
-        start = time.perf_counter()
         lang = _detect_language(action.file_path or "")
         active = [s for s in self._stages if s.supports_language(lang)]
 
-        logger.info(
-            "[pipeline] running %d stage(s) for %s (%s)",
-            len(active),
-            action.file_path or "<unknown>",
-            lang,
-        )
+        tracer = get_tracer(__name__)
+        with tracer.start_as_current_span(
+            "detent.pipeline",
+            attributes={
+                "detent.file_path": action.file_path or "<unknown>",
+                "detent.language": lang,
+                "detent.stage_count": len(active),
+                "detent.parallel": self._config.parallel,
+            },
+        ):
+            start = time.perf_counter()
 
-        if not active:
-            logger.info("[pipeline] no applicable stages; passing")
-            return VerificationResult(
-                stage="pipeline",
-                passed=True,
-                findings=[],
-                duration_ms=(time.perf_counter() - start) * 1000,
+            logger.info(
+                "[pipeline] running %d stage(s) for %s (%s)",
+                len(active),
+                action.file_path or "<unknown>",
+                lang,
             )
 
-        if self._config.parallel:
-            collected = await self._run_parallel(action, active)
-        else:
-            collected = await self._run_sequential(action, active)
+            if not active:
+                logger.info("[pipeline] no applicable stages; passing")
+                result = VerificationResult(
+                    stage="pipeline",
+                    passed=True,
+                    findings=[],
+                    duration_ms=(time.perf_counter() - start) * 1000,
+                )
+            else:
+                if self._config.parallel:
+                    collected = await self._run_parallel(action, active)
+                else:
+                    collected = await self._run_sequential(action, active)
 
-        result = self._aggregate(collected, start)
-        logger.info(
-            "[pipeline] complete: passed=%s, %d finding(s) in %.1f ms",
-            result.passed,
-            len(result.findings),
-            result.duration_ms,
-        )
+                result = self._aggregate(collected, start)
+
+            logger.info(
+                "[pipeline] complete: passed=%s, %d finding(s) in %.1f ms",
+                result.passed,
+                len(result.findings),
+                result.duration_ms,
+            )
+        record_pipeline_duration(lang, result.passed, result.duration_ms)
         return result
 
     async def _run_sequential(

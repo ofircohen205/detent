@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 async def _run_proxy() -> None:
     config = DetentConfig.load()
-    proxy = DetentProxy(port=config.proxy.port)
+    proxy = DetentProxy(port=config.proxy.port, strict_mode=config.strict_mode)
     await proxy.start()
 
     loop = asyncio.get_running_loop()

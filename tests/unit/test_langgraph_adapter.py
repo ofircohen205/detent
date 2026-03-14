@@ -112,12 +112,12 @@ async def test_langgraph_adapter_allows_passing_verification():
     )
 
     output = await adapter.handle_verification_result(action, result)
-    assert output is None  # Allow
+    assert output == {"permissionDecision": "allow"}
 
 
 @pytest.mark.asyncio
 async def test_langgraph_adapter_blocks_on_typecheck_error():
-    """LangGraphAdapter should block on typecheck errors."""
+    """LangGraphAdapter should deny on typecheck errors."""
     adapter = LangGraphAdapter(session_manager=MagicMock())
 
     action = AgentAction(
@@ -146,8 +146,8 @@ async def test_langgraph_adapter_blocks_on_typecheck_error():
         duration_ms=150.0,
     )
 
-    with pytest.raises(ValueError, match="Verification failed"):
-        await adapter.handle_verification_result(action, result)
+    output = await adapter.handle_verification_result(action, result)
+    assert output == {"permissionDecision": "deny"}
 
 
 @pytest.mark.asyncio
@@ -182,12 +182,12 @@ async def test_langgraph_adapter_allows_warnings():
     )
 
     output = await adapter.handle_verification_result(action, result)
-    assert output is None  # Allow despite warnings
+    assert output == {"permissionDecision": "allow"}
 
 
 @pytest.mark.asyncio
 async def test_langgraph_adapter_blocks_on_syntax_error():
-    """LangGraphAdapter should block on syntax errors."""
+    """LangGraphAdapter should deny on syntax errors."""
     adapter = LangGraphAdapter(session_manager=MagicMock())
 
     action = AgentAction(
@@ -216,13 +216,13 @@ async def test_langgraph_adapter_blocks_on_syntax_error():
         duration_ms=50.0,
     )
 
-    with pytest.raises(ValueError, match="Verification failed"):
-        await adapter.handle_verification_result(action, result)
+    output = await adapter.handle_verification_result(action, result)
+    assert output == {"permissionDecision": "deny"}
 
 
 @pytest.mark.asyncio
 async def test_langgraph_adapter_blocks_on_multiple_errors():
-    """LangGraphAdapter should block when multiple errors exist."""
+    """LangGraphAdapter should deny when multiple errors exist."""
     adapter = LangGraphAdapter(session_manager=MagicMock())
 
     action = AgentAction(
@@ -258,8 +258,8 @@ async def test_langgraph_adapter_blocks_on_multiple_errors():
         duration_ms=100.0,
     )
 
-    with pytest.raises(ValueError, match="2 error"):
-        await adapter.handle_verification_result(action, result)
+    output = await adapter.handle_verification_result(action, result)
+    assert output == {"permissionDecision": "deny"}
 
 
 @pytest.mark.asyncio

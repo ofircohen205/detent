@@ -17,12 +17,18 @@
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Any, Final
 
-import tree_sitter_javascript as tsjavascript
-import tree_sitter_python as tspython
-import tree_sitter_typescript as tstypescript
-from tree_sitter import Language
+try:
+    import tree_sitter_javascript as tsjavascript
+    import tree_sitter_python as tspython
+    import tree_sitter_typescript as tstypescript
+    from tree_sitter import Language
+except ImportError:
+    tsjavascript = None
+    tspython = None
+    tstypescript = None
+    Language = Any
 
 PYTHON_EXTENSIONS: Final[frozenset[str]] = frozenset({".py"})
 JS_TS_EXTENSIONS: Final[frozenset[str]] = frozenset({".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"})
@@ -41,10 +47,13 @@ ESLINT_CONFIG_FILES: Final[tuple[str, ...]] = (
 TS_CONFIG_FILENAME: Final[str] = "tsconfig.json"
 TS_EXTENSIONS: Final[frozenset[str]] = frozenset({".ts", ".tsx"})
 
-TREE_SITTER_LANGUAGE_MAP: Final[dict[str, Language]] = {
-    ".py": Language(tspython.language()),
-    ".js": Language(tsjavascript.language()),
-    ".jsx": Language(tsjavascript.language()),
-    ".ts": Language(tstypescript.language_typescript()),
-    ".tsx": Language(tstypescript.language_tsx()),
-}
+if tsjavascript and tspython and tstypescript and Language:
+    TREE_SITTER_LANGUAGE_MAP: Final[dict[str, Language]] = {
+        ".py": Language(tspython.language()),
+        ".js": Language(tsjavascript.language()),
+        ".jsx": Language(tsjavascript.language()),
+        ".ts": Language(tstypescript.language_typescript()),
+        ".tsx": Language(tstypescript.language_tsx()),
+    }
+else:
+    TREE_SITTER_LANGUAGE_MAP: Final[dict[str, Language]] = {}

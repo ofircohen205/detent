@@ -47,7 +47,7 @@ async def test_finding_uses_original_file_path(stage: TypecheckStage) -> None:
 
 
 async def test_unsupported_extension_skips(stage: TypecheckStage) -> None:
-    action = make_action(file_path="/src/main.ts", content="const x: number = 1;")
+    action = make_action(file_path="/src/main.go", content="package main\nfunc main() {}")
     result = await stage.run(action)
     assert result.passed
     assert result.metadata.get("skipped") is True

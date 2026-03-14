@@ -25,6 +25,7 @@ class MockStage(VerificationStage):
         findings: list[Finding] | None = None,
         supported_lang: str | None = None,
     ) -> None:
+        super().__init__()
         self._stage_name = stage_name
         self._findings = findings or []
         self._supported_lang = supported_lang  # None = all languages
@@ -287,7 +288,7 @@ def test_from_config_builds_default_pipeline():
     config = DetentConfig._with_default_stages()
     pipeline = VerificationPipeline.from_config(config)
     stage_names = [s.name for s in pipeline._stages]
-    assert stage_names == ["syntax", "lint", "typecheck", "tests"]
+    assert stage_names == ["syntax", "lint", "typecheck", "tests", "security"]
 
 
 def test_from_config_skips_disabled_stages():

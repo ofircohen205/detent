@@ -22,6 +22,8 @@ import logging
 import click
 
 from detent import __version__
+from detent.config import DetentConfig
+from detent.observability import setup_telemetry
 
 
 @click.group()
@@ -43,5 +45,16 @@ def main(ctx: click.Context, verbose: bool, config_path: str | None) -> None:
     """
     ctx.ensure_object(dict)
     ctx.obj["config_path"] = config_path
+    config = None
+    config_error = None
+    try:
+        config = DetentConfig.load(path=config_path)
+        setup_telemetry(config.telemetry)
+    except Exception as exc:  # pragma: no cover
+        config_error = exc
+        logger = logging.getLogger(__name__)
+        logger.warning("Failed to load config for telemetry: %s", exc)
+    ctx.obj["config"] = config
+    ctx.obj["config_error"] = config_error
     if verbose:
         logging.root.setLevel(logging.DEBUG)

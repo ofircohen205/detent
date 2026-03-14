@@ -21,6 +21,7 @@ import asyncio
 import json
 import logging
 import ssl
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlparse
@@ -28,6 +29,10 @@ from urllib.parse import urlparse
 import aiohttp
 import certifi
 from aiohttp import web
+
+from detent.circuit_breaker import CircuitBreaker, CircuitOpenError
+from detent.observability.metrics import record_proxy_request, record_proxy_retry
+from detent.observability.tracer import get_tracer
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +52,7 @@ class DetentProxy:
         connect_timeout_s: float = 10.0,
         session_dir: Path | str | None = None,
         ssl_context: ssl.SSLContext | None = None,
+        strict_mode: bool = False,
     ) -> None:
         """Initialize HTTP proxy.
 
@@ -74,6 +80,8 @@ class DetentProxy:
         self._max_retries = 3
         self._session_lock = asyncio.Lock()
         self._routes_configured = False
+        self.strict_mode = strict_mode
+        self._proxy_breaker = CircuitBreaker(name="proxy")
         if ssl_context is not None:
             self._ssl_context = ssl_context
         else:
@@ -141,41 +149,58 @@ class DetentProxy:
             Exception if all retries exhausted
         """
         backoffs = [0.1, 0.2, 0.4]  # 100ms, 200ms, 400ms
+        tracer = get_tracer(__name__)
+        upstream_host = urlparse(url).hostname or "<unknown>"
 
         for attempt in range(self._max_retries):
-            try:
-                connector = aiohttp.TCPConnector(ssl=self._ssl_context)
-                async with (
-                    aiohttp.ClientSession(connector=connector) as session,
-                    session.request(
-                        method,
-                        url,
-                        data=body,
-                        headers=headers,
-                        timeout=aiohttp.ClientTimeout(
-                            connect=self.connect_timeout_s,
-                            total=None,  # no total timeout — LLM calls can stream for minutes
-                        ),
-                    ) as resp,
-                ):
-                    response_body = await resp.read()
-                    return resp.status, dict(resp.headers), response_body
-            except (TimeoutError, aiohttp.ClientError) as e:
-                if attempt < self._max_retries - 1:
-                    wait = backoffs[attempt]
-                    logger.warning(
-                        "[proxy] request failed (attempt %d/%d), retrying in %.1fs: %s",
-                        attempt + 1,
-                        self._max_retries,
-                        wait,
-                        e,
-                    )
-                    await asyncio.sleep(wait)
-                else:
-                    logger.error("[proxy] request failed after %d attempts: %s", self._max_retries, e)
-                    raise
+            attempt_number = attempt + 1
+            span_attrs = {
+                "detent.proxy.upstream_host": upstream_host,
+                "detent.proxy.method": method,
+                "detent.retry.attempt": attempt_number,
+            }
+            with tracer.start_as_current_span("detent.proxy.request", attributes=span_attrs) as span:
+                try:
+                    connector = aiohttp.TCPConnector(ssl=self._ssl_context)
+                    start = time.perf_counter()
+                    async with (
+                        aiohttp.ClientSession(connector=connector) as session,
+                        session.request(
+                            method,
+                            url,
+                            data=body,
+                            headers=headers,
+                            timeout=aiohttp.ClientTimeout(
+                                connect=self.connect_timeout_s,
+                                total=None,
+                            ),
+                        ) as resp,
+                    ):
+                        response_body = await resp.read()
+                        duration_ms = (time.perf_counter() - start) * 1000
+                        span.set_attribute("detent.proxy.status_code", resp.status)
+                        record_proxy_request(upstream_host, resp.status, duration_ms)
+                        return resp.status, dict(resp.headers), response_body
+                except (TimeoutError, aiohttp.ClientError) as e:
+                    record_proxy_retry(upstream_host, attempt_number)
+                    if attempt < self._max_retries - 1:
+                        wait = backoffs[attempt]
+                        logger.warning(
+                            "[proxy] request failed (attempt %d/%d), retrying in %.1fs: %s",
+                            attempt_number,
+                            self._max_retries,
+                            wait,
+                            e,
+                        )
+                        await asyncio.sleep(wait)
+                    else:
+                        logger.error(
+                            "[proxy] request failed after %d attempts: %s",
+                            self._max_retries,
+                            e,
+                        )
+                        raise
 
-        # This line should never be reached due to the raise above
         msg = "All retries exhausted"
         raise RuntimeError(msg)
 
@@ -196,6 +221,12 @@ class DetentProxy:
         }
 
         try:
+            coro = self._forward_with_retry(method, upstream_url, headers, body)
+            status, resp_headers, resp_body = await self._proxy_breaker.call(coro)
+            return web.Response(body=resp_body, status=status, headers=resp_headers)
+        except CircuitOpenError:
+            if self.strict_mode:
+                return web.json_response({"error": "proxy circuit breaker open"}, status=503)
             status, resp_headers, resp_body = await self._forward_with_retry(method, upstream_url, headers, body)
             return web.Response(body=resp_body, status=status, headers=resp_headers)
         except Exception as e:

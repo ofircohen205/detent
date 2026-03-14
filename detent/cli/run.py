@@ -74,7 +74,7 @@ async def run_file(
         unknown = set(stage_filter) - _KNOWN_STAGES
         if unknown:
             raise click.ClickException(
-                f"Unknown stage: {', '.join(sorted(unknown))}. " f"Available: {', '.join(sorted(_KNOWN_STAGES))}"
+                f"Unknown stage: {', '.join(sorted(unknown))}. Available: {', '.join(sorted(_KNOWN_STAGES))}"
             )
         config = copy.deepcopy(config)
         for stage in config.pipeline.stages:
@@ -181,10 +181,16 @@ def run(
     """Verify a file through the full pipeline."""
     try:
         config_path = ctx.obj.get("config_path") if ctx.obj else None
+        config = ctx.obj.get("config") if ctx.obj else None
+        if config is None:
+            config_error = ctx.obj.get("config_error") if ctx.obj else None
+            if config_error:
+                raise click.ClickException(f"Failed to load config: {config_error}")
         mgr = SessionManager()
         session = mgr.load_or_create()
         mgr.save(session)
-        config = DetentConfig.load(path=config_path)
+        if config is None:
+            config = DetentConfig.load(path=config_path)
         passed, result = asyncio.run(
             run_file(
                 file_path,
