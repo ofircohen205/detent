@@ -86,7 +86,7 @@ async def test_full_workflow(tmp_path):
     assert len(session["checkpoints"]) > 0
 
     # Step 5: Mock rollback and verify
-    with patch("detent.cli.CheckpointEngine") as mock_checkpoint:
+    with patch("detent.cli.rollback.CheckpointEngine") as mock_checkpoint:
         mock_checkpoint_instance = AsyncMock()
         mock_checkpoint_instance.rollback = AsyncMock()
         mock_checkpoint.return_value = mock_checkpoint_instance
