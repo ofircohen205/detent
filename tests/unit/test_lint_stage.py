@@ -46,7 +46,7 @@ async def test_finding_has_line_number(stage: LintStage) -> None:
 
 
 async def test_unsupported_extension_skips(stage: LintStage) -> None:
-    action = make_action(file_path="/src/main.ts", content="const x = 1;")
+    action = make_action(file_path="/src/main.go", content="package main\nfunc main() {}")
     result = await stage.run(action)
     assert result.passed
     assert result.metadata.get("skipped") is True

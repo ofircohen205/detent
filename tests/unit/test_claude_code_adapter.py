@@ -95,12 +95,12 @@ async def test_claude_code_adapter_allows_passing_verification():
     )
 
     output = await adapter.handle_verification_result(action, result)
-    assert output is None  # Allow (no modification)
+    assert output == {"hookSpecificOutput": {"permissionDecision": "allow"}}
 
 
 @pytest.mark.asyncio
 async def test_claude_code_adapter_blocks_on_syntax_error():
-    """ClaudeCodeAdapter should block on syntax errors."""
+    """ClaudeCodeAdapter should deny when verification fails with errors."""
     adapter = ClaudeCodeAdapter(session_manager=MagicMock())
 
     action = AgentAction(
@@ -129,5 +129,5 @@ async def test_claude_code_adapter_blocks_on_syntax_error():
         duration_ms=50.0,
     )
 
-    with pytest.raises(ValueError, match="Verification failed"):
-        await adapter.handle_verification_result(action, result)
+    output = await adapter.handle_verification_result(action, result)
+    assert output == {"hookSpecificOutput": {"permissionDecision": "deny"}}

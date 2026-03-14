@@ -43,7 +43,7 @@ async def test_finding_has_original_file_path(stage: SyntaxStage) -> None:
 
 
 async def test_unsupported_extension_skips(stage: SyntaxStage) -> None:
-    action = make_action(file_path="/src/main.ts", content="const x: number = 1;")
+    action = make_action(file_path="/src/main.go", content="package main\nfunc main() {}")
     result = await stage.run(action)
     assert result.passed
     assert result.metadata.get("skipped") is True
@@ -69,5 +69,9 @@ async def test_supports_python(stage: SyntaxStage) -> None:
     assert stage.supports_language("python") is True
 
 
-async def test_does_not_support_typescript(stage: SyntaxStage) -> None:
-    assert stage.supports_language("typescript") is False
+async def test_supports_typescript(stage: SyntaxStage) -> None:
+    assert stage.supports_language("typescript") is True
+
+
+async def test_does_not_support_go(stage: SyntaxStage) -> None:
+    assert stage.supports_language("go") is False

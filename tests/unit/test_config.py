@@ -55,8 +55,8 @@ class TestDetentConfig:
         """Test _with_default_stages creates the standard v0.1 stages."""
         config = DetentConfig._with_default_stages()
         stages = config.get_enabled_stages()
-        assert len(stages) == 4
-        assert [s.name for s in stages] == ["syntax", "lint", "typecheck", "tests"]
+        assert len(stages) == 5
+        assert [s.name for s in stages] == ["syntax", "lint", "typecheck", "tests", "security"]
 
     def test_get_enabled_stages_filters(self) -> None:
         """Test get_enabled_stages filters out disabled stages."""
@@ -100,7 +100,7 @@ stages:
         config = DetentConfig.load(tmp_path / "nonexistent.yaml")
         assert config.policy == "standard"
         stages = config.get_enabled_stages()
-        assert len(stages) == 4
+        assert len(stages) == 5
 
     def test_load_empty_yaml(self, tmp_path: Path) -> None:
         """Test loading an empty YAML file falls back to defaults."""
@@ -109,7 +109,7 @@ stages:
         config = DetentConfig.load(config_file)
         assert config.policy == "standard"
         stages = config.get_enabled_stages()
-        assert len(stages) == 4
+        assert len(stages) == 5
 
     def test_load_from_env_var(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test loading config from DETENT_CONFIG env var."""

@@ -74,7 +74,7 @@ async def run_file(
         unknown = set(stage_filter) - _KNOWN_STAGES
         if unknown:
             raise click.ClickException(
-                f"Unknown stage: {', '.join(sorted(unknown))}. " f"Available: {', '.join(sorted(_KNOWN_STAGES))}"
+                f"Unknown stage: {', '.join(sorted(unknown))}. Available: {', '.join(sorted(_KNOWN_STAGES))}"
             )
         config = copy.deepcopy(config)
         for stage in config.pipeline.stages:
