@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from detent.adapters.base import AgentAdapter
+from detent.adapters.http_proxy import HTTPProxyAdapter
 from detent.schema import ActionType, AgentAction, RiskLevel
 
 if TYPE_CHECKING:
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class ClaudeCodeAdapter(AgentAdapter):
+class ClaudeCodeAdapter(HTTPProxyAdapter):
     """Adapter for Claude Code's PreToolUse / PostToolUse hooks."""
 
     @property
@@ -37,7 +37,12 @@ class ClaudeCodeAdapter(AgentAdapter):
         """Identifier for this adapter."""
         return "claude-code"
 
-    async def intercept(self, raw_event: dict[str, Any]) -> AgentAction:
+    @property
+    def upstream_host(self) -> str:
+        """Expected upstream host for Claude Code."""
+        return "api.anthropic.com"
+
+    async def intercept(self, raw_event: dict[str, Any]) -> AgentAction | None:
         """Normalize Claude Code tool call to AgentAction.
 
         Args:
@@ -46,31 +51,24 @@ class ClaudeCodeAdapter(AgentAdapter):
         Returns:
             Normalized AgentAction
         """
-        tool_name = raw_event.get("tool_name", "")
-        tool_input = raw_event.get("tool_input", {})
-        tool_call_id = raw_event.get("tool_call_id", "")
-
-        # Map Claude Code tools to action types
-        action_type_map: dict[str, ActionType] = {
-            "Write": ActionType.FILE_WRITE,
-            "Edit": ActionType.FILE_WRITE,
-            "Bash": ActionType.SHELL_EXEC,
-            "Read": ActionType.FILE_READ,
-            "WebFetch": ActionType.WEB_FETCH,
-        }
-        action_type = action_type_map.get(tool_name, ActionType.MCP_TOOL)
-
-        if tool_name not in action_type_map:
-            logger.warning(
-                "[claude-code] unknown tool %s, treating as mcp_tool",
-                tool_name,
-            )
+        if "hook_event_name" in raw_event:
+            tool_name = raw_event.get("tool_name", "")
+            tool_input = raw_event.get("tool_input", {})
+            tool_call_id = raw_event.get("tool_call_id", "")
         else:
-            logger.debug(
-                "[claude-code] intercepted %s tool call %s",
-                tool_name,
-                tool_call_id,
-            )
+            tool_name = raw_event.get("tool_name") or raw_event.get("name") or ""
+            tool_input = raw_event.get("tool_input") or raw_event.get("input") or {}
+            tool_call_id = raw_event.get("tool_call_id") or raw_event.get("id") or ""
+
+        if not tool_name:
+            logger.debug("[claude-code] tool call missing name; skipping")
+            return None
+
+        action_type = self._ACTION_TYPE_MAP.get(tool_name, ActionType.MCP_TOOL)
+        if tool_name not in self._ACTION_TYPE_MAP:
+            logger.warning("[claude-code] unknown tool %s, treating as mcp_tool", tool_name)
+        else:
+            logger.debug("[claude-code] intercepted %s tool call %s", tool_name, tool_call_id)
 
         action = AgentAction(
             action_type=action_type,
@@ -89,43 +87,8 @@ class ClaudeCodeAdapter(AgentAdapter):
         self,
         action: AgentAction,
         result: VerificationResult,
-    ) -> dict[str, Any] | None:
-        """Process verification result and decide: allow / modify / block.
-
-        Args:
-            action: The verified action
-            result: Verification pipeline result
-
-        Returns:
-            None to allow execution, dict of modified tool_input for fixes
-
-        Raises:
-            ValueError: If verification found errors (syntax, typecheck, tests)
-        """
-        if result.passed:
-            logger.info(
-                "[claude-code] verification passed for %s, allowing execution",
-                action.tool_name,
-            )
-            return None
-
-        # Check for errors vs warnings
-        errors = [f for f in result.findings if f.severity == "error"]
-        warnings = [f for f in result.findings if f.severity == "warning"]
-
-        if errors:
-            # Block on any error (syntax, typecheck, test failure)
-            msg = f"Verification failed: {len(errors)} error(s) found"
-            logger.error("[claude-code] blocking %s: %s", action.tool_name, msg)
-            raise ValueError(msg)
-
-        if warnings:
-            # Lint/format issues only - could apply ruff fixes here
-            logger.info(
-                "[claude-code] %d warning(s) found for %s, would apply ruff fixes",
-                len(warnings),
-                action.tool_name,
-            )
-            return None
-
-        return None
+    ) -> dict[str, Any]:
+        """Return hook response with allow/deny permission decision."""
+        allow = result.passed or not any(f.severity == "error" for f in result.findings)
+        decision = "allow" if allow else "deny"
+        return {"hookSpecificOutput": {"permissionDecision": decision}}

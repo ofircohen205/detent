@@ -21,7 +21,10 @@ import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
+from detent.schema import ActionType
+
 if TYPE_CHECKING:
+    from detent.pipeline.result import VerificationResult
     from detent.proxy.session import SessionManager
     from detent.schema import AgentAction
 
@@ -35,6 +38,17 @@ class AgentAdapter(ABC):
     normalized AgentAction schema, then delegates to SessionManager
     for verification and checkpoint management.
     """
+
+    _ACTION_TYPE_MAP: dict[str, ActionType] = {
+        "Write": ActionType.FILE_WRITE,
+        "Edit": ActionType.FILE_WRITE,
+        "Bash": ActionType.SHELL_EXEC,
+        "Read": ActionType.FILE_READ,
+        "WebFetch": ActionType.WEB_FETCH,
+        "create_file": ActionType.FILE_WRITE,
+        "run_command": ActionType.SHELL_EXEC,
+        "read_file": ActionType.FILE_READ,
+    }
 
     @property
     @abstractmethod
@@ -51,12 +65,23 @@ class AgentAdapter(ABC):
         logger.debug("Initialized %s adapter", self.agent_name)
 
     @abstractmethod
-    async def intercept(self, raw_event: dict[str, Any]) -> AgentAction:
+    async def intercept(self, raw_event: dict[str, Any]) -> AgentAction | None:
         """Normalize agent-specific event to AgentAction.
 
         Args:
             raw_event: Agent-specific event format (JSON from PreToolUse, LangGraph state, etc.)
 
         Returns:
-            Normalized AgentAction
+            Normalized AgentAction, or None to skip verification
         """
+
+    async def handle_verification_result(
+        self,
+        action: AgentAction,
+        result: VerificationResult,
+    ) -> dict[str, Any]:
+        """Return hook-specific output for verification results.
+
+        Default behavior is a no-op allow decision.
+        """
+        return {}

@@ -1,10 +1,12 @@
 """Tests for HTTP reverse proxy."""
 
 import json
+from unittest.mock import MagicMock
 
 import aiohttp
 import pytest
 
+from detent.adapters.openapi import OpenAPIAdapter
 from detent.proxy.http_proxy import DetentProxy
 
 
@@ -50,40 +52,25 @@ def test_proxy_accepts_openai_upstream() -> None:
     assert proxy.upstream_url == "https://api.openai.com"
 
 
-def test_extract_tool_calls_from_anthropic_response():
-    """Extract tool use blocks from Anthropic API response."""
-    proxy = DetentProxy()
+@pytest.mark.asyncio
+async def test_hook_route_registered_before_proxy_handler():
+    """Hook routes should be matched before the catch-all proxy handler."""
+    proxy = DetentProxy(port=9996, upstream_url="https://api.anthropic.com")
+    adapter = OpenAPIAdapter(session_manager=MagicMock())
+    adapter.register(proxy.app)
+    await proxy.start()
 
-    response = {
-        "id": "msg_123",
-        "content": [
-            {"type": "text", "text": "I'll write a file."},
-            {
-                "type": "tool_use",
-                "id": "toolu_01ABC",
-                "name": "Write",
-                "input": {"file_path": "/src/main.py", "content": "print('hello')"},
-            },
-        ],
-    }
-
-    tool_calls = proxy.extract_tool_calls(response)
-    assert len(tool_calls) == 1
-    assert tool_calls[0]["name"] == "Write"
-    assert tool_calls[0]["input"]["file_path"] == "/src/main.py"
-
-
-def test_extract_no_tool_calls():
-    """Response with no tool use should return empty list."""
-    proxy = DetentProxy()
-
-    response = {
-        "id": "msg_123",
-        "content": [{"type": "text", "text": "Just text response."}],
-    }
-
-    tool_calls = proxy.extract_tool_calls(response)
-    assert tool_calls == []
+    try:
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(
+                f"http://127.0.0.1:{proxy.port}/hooks/openapi",
+                json={},
+            ) as resp,
+        ):
+            assert resp.status == 400
+    finally:
+        await proxy.stop()
 
 
 @pytest.mark.asyncio

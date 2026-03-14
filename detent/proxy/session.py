@@ -122,7 +122,7 @@ class SessionManager:
             )
         )
 
-    async def intercept_tool_call(self, action: AgentAction) -> VerificationResult:
+    async def intercept_tool_call(self, action: AgentAction | None) -> VerificationResult:
         """Intercept and verify a tool call.
 
         Args:
@@ -131,6 +131,14 @@ class SessionManager:
         Returns:
             Verification result (pass/fail with findings)
         """
+        if action is None:
+            logger.debug("[session] no action to verify; skipping pipeline")
+            return VerificationResult(
+                stage="session",
+                passed=True,
+                findings=[],
+                duration_ms=0.0,
+            )
         if not self.is_active:
             logger.warning("[session] tool call intercepted but no active session")
             return VerificationResult(

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from detent.adapters.base import AgentAdapter
-from detent.schema import AgentAction
+from detent.schema import ActionType, AgentAction
 
 
 class MockAdapter(AgentAdapter):
@@ -16,7 +16,7 @@ class MockAdapter(AgentAdapter):
         """Return the adapter name."""
         return "test-agent"
 
-    async def intercept(self, raw_event: dict) -> AgentAction:
+    async def intercept(self, raw_event: dict) -> AgentAction | None:
         """Normalize raw event to AgentAction."""
         return AgentAction(
             action_type="file_write",
@@ -57,3 +57,9 @@ async def test_mock_adapter_intercept():
     action = await adapter.intercept(raw_event)
     assert action.tool_name == "Write"
     assert action.tool_input["file_path"] == "/src/main.py"
+
+
+def test_action_type_map_shared():
+    """_ACTION_TYPE_MAP should include core tool mappings."""
+    assert AgentAdapter._ACTION_TYPE_MAP["Write"] == ActionType.FILE_WRITE
+    assert AgentAdapter._ACTION_TYPE_MAP["Bash"] == ActionType.SHELL_EXEC

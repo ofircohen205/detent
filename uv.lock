@@ -489,6 +489,9 @@ security = [
 [package.dev-dependencies]
 dev = [
     { name = "pre-commit" },
+    { name = "tree-sitter" },
+    { name = "tree-sitter-python" },
+    { name = "types-tree-sitter" },
 ]
 
 [package.metadata]
@@ -515,7 +518,12 @@ requires-dist = [
 provides-extras = ["dev", "security"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pre-commit", specifier = ">=4.5.1" }]
+dev = [
+    { name = "pre-commit", specifier = ">=4.5.1" },
+    { name = "tree-sitter", specifier = ">=0.25.2" },
+    { name = "tree-sitter-python", specifier = ">=0.25.0" },
+    { name = "types-tree-sitter", specifier = ">=0.20.1.20240311" },
+]
 
 [[package]]
 name = "distlib"
@@ -1741,6 +1749,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/7e/69/3c51b36d04da19b92f9e815be12753125bd8bc247ba0470a982e6979e71c/types_pyyaml-6.0.12.20250915.tar.gz", hash = "sha256:0f8b54a528c303f0e6f7165687dd33fafa81c807fcac23f632b63aa624ced1d3", size = 17522, upload-time = "2025-09-15T03:01:00.728Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bd/e0/1eed384f02555dde685fff1a1ac805c1c7dcb6dd019c916fe659b1c1f9ec/types_pyyaml-6.0.12.20250915-py3-none-any.whl", hash = "sha256:e7d4d9e064e89a3b3cae120b4990cd370874d2bf12fa5f46c97018dd5d3c9ab6", size = 20338, upload-time = "2025-09-15T03:00:59.218Z" },
+]
+
+[[package]]
+name = "types-tree-sitter"
+version = "0.20.1.20240311"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c7/3d/027e1de05ceb6cce755fe8701e62cf8b6ff4b894f5948e9bbd2d1b90092b/types-tree-sitter-0.20.1.20240311.tar.gz", hash = "sha256:a046e3da64efa68ac23dfeb7a6fbe10787294e802c5cad46d8b6daf765f5e409", size = 3988, upload-time = "2024-03-11T02:17:10.178Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ce/df/7e79185d712f53fb6fc84d3933e12065e3739e567f07747076b6ba884347/types_tree_sitter-0.20.1.20240311-py3-none-any.whl", hash = "sha256:fb7babaad37c907fa11904f33bae7f8a99b1a288b3c3099ed01f527fc0073069", size = 4052, upload-time = "2024-03-11T02:17:05.777Z" },
 ]
 
 [[package]]
