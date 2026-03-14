@@ -26,7 +26,9 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import tree_sitter_javascript as tsjavascript
 import tree_sitter_python as tspython
+import tree_sitter_typescript as tstypescript
 from tree_sitter import Language, Parser
 
 from detent.pipeline.result import Finding, VerificationResult
@@ -39,8 +41,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_PY_LANGUAGE = Language(tspython.language())
-_SUPPORTED_EXTENSIONS = frozenset({".py"})
+_LANGUAGE_MAP: dict[str, Language] = {
+    ".py": Language(tspython.language()),
+    ".js": Language(tsjavascript.language()),
+    ".jsx": Language(tsjavascript.language()),
+    ".ts": Language(tstypescript.language_typescript()),
+    ".tsx": Language(tstypescript.language_tsx()),
+}
+_SUPPORTED_EXTENSIONS = frozenset(_LANGUAGE_MAP.keys())
 
 
 class SyntaxStage(VerificationStage):
@@ -54,7 +62,7 @@ class SyntaxStage(VerificationStage):
 
     def supports_language(self, lang: str) -> bool:
         """Return True only for Python."""
-        return lang in {"python", "py"}
+        return lang in {"python", "py", "javascript", "typescript"}
 
     async def _run(self, action: AgentAction) -> VerificationResult:
         """Parse proposed content and return any syntax error findings."""
@@ -64,7 +72,8 @@ class SyntaxStage(VerificationStage):
         content = action.content or ""
 
         ext = Path(file_path).suffix.lower()
-        if ext not in _SUPPORTED_EXTENSIONS:
+        language = _LANGUAGE_MAP.get(ext)
+        if language is None:
             duration_ms = (time.perf_counter() - start) * 1000
             logger.debug("[syntax] skipping unsupported extension: %s", ext)
             return VerificationResult(
@@ -75,7 +84,7 @@ class SyntaxStage(VerificationStage):
                 metadata={"skipped": True, "reason": f"Unsupported extension: {ext}"},
             )
 
-        parser = Parser(_PY_LANGUAGE)
+        parser = Parser(language=language)
         tree = parser.parse(content.encode("utf-8"))
 
         findings: list[Finding] = []

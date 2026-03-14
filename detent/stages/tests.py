@@ -35,11 +35,13 @@ if TYPE_CHECKING:
 
 from detent.pipeline.result import Finding, VerificationResult
 from detent.stages.base import VerificationStage, _validate_file_path
+from detent.stages.tests_js import run_js_tests
 
 logger = logging.getLogger(__name__)
 
 _MAX_WALK_DEPTH = 5
 _PASSING_EXIT_CODES = frozenset({0, 5})  # 0=all passed, 5=no tests collected
+_JS_EXTENSIONS = frozenset({".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"})
 
 
 class TestsStage(VerificationStage):
@@ -50,6 +52,9 @@ class TestsStage(VerificationStage):
     """
 
     name = "tests"
+
+    def supports_language(self, lang: str) -> bool:
+        return lang in {"python", "javascript", "typescript"}
 
     async def _run(self, action: AgentAction) -> VerificationResult:
         """Find related test files and run pytest on them."""
@@ -66,6 +71,20 @@ class TestsStage(VerificationStage):
                 findings=[],
                 duration_ms=duration_ms,
                 metadata={"skipped": True, "reason": "No file_path in action"},
+            )
+
+        ext = Path(file_path).suffix.lower()
+        if ext in _JS_EXTENSIONS:
+            timeout = self._config.timeout if self._config else 30
+            tool_override = self._config.tools[0] if self._config and self._config.tools else None
+            findings = await run_js_tests(file_path, timeout, tool_override)
+            duration_ms = (time.perf_counter() - start) * 1000
+            return VerificationResult(
+                stage=self.name,
+                passed=len(findings) == 0,
+                findings=findings,
+                duration_ms=duration_ms,
+                metadata={"tool": tool_override or "auto"},
             )
 
         test_files = self._find_test_files(file_path)

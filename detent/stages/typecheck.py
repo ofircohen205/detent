@@ -37,10 +37,12 @@ if TYPE_CHECKING:
 
 from detent.pipeline.result import Finding, VerificationResult
 from detent.stages.base import VerificationStage, _validate_file_path
+from detent.stages.typecheck_js import run_tsc
 
 logger = logging.getLogger(__name__)
 
 _SUPPORTED_EXTENSIONS = frozenset({".py"})
+_TS_EXTENSIONS = frozenset({".ts", ".tsx"})
 _SEVERITY_MAP: dict[str, Literal["error", "warning", "info"]] = {
     "error": "error",
     "warning": "warning",
@@ -60,7 +62,7 @@ class TypecheckStage(VerificationStage):
 
     def supports_language(self, lang: str) -> bool:
         """Return True only for Python."""
-        return lang in {"python", "py"}
+        return lang in {"python", "py", "typescript"}
 
     async def _run(self, action: AgentAction) -> VerificationResult:
         """Type-check content using mypy via temp file."""
@@ -73,6 +75,20 @@ class TypecheckStage(VerificationStage):
             _validate_file_path(file_path)
 
         ext = Path(file_path).suffix.lower()
+        if ext in _TS_EXTENSIONS:
+            findings = await run_tsc(
+                file_path,
+                self._config.timeout if self._config else 30,
+            )
+            duration_ms = (time.perf_counter() - start) * 1000
+            return VerificationResult(
+                stage=self.name,
+                passed=len(findings) == 0,
+                findings=findings,
+                duration_ms=duration_ms,
+                metadata={"tool": "tsc"},
+            )
+
         if ext not in _SUPPORTED_EXTENSIONS:
             duration_ms = (time.perf_counter() - start) * 1000
             logger.debug("[typecheck] skipping unsupported extension: %s", ext)

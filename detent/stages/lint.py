@@ -33,10 +33,12 @@ if TYPE_CHECKING:
 
 from detent.pipeline.result import Finding, VerificationResult
 from detent.stages.base import VerificationStage, _validate_file_path
+from detent.stages.lint_js import run_eslint
 
 logger = logging.getLogger(__name__)
 
 _SUPPORTED_EXTENSIONS = frozenset({".py"})
+_JS_EXTENSIONS = frozenset({".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"})
 
 
 class LintStage(VerificationStage):
@@ -50,7 +52,7 @@ class LintStage(VerificationStage):
 
     def supports_language(self, lang: str) -> bool:
         """Return True only for Python."""
-        return lang == "python"
+        return lang in {"python", "javascript", "typescript"}
 
     async def _run(self, action: AgentAction) -> VerificationResult:
         """Lint content using ruff check via stdin."""
@@ -63,6 +65,21 @@ class LintStage(VerificationStage):
             _validate_file_path(file_path)
 
         ext = Path(file_path).suffix.lower()
+        if ext in _JS_EXTENSIONS:
+            findings = await run_eslint(
+                file_path,
+                content,
+                self._config.timeout if self._config else 30,
+            )
+            duration_ms = (time.perf_counter() - start) * 1000
+            return VerificationResult(
+                stage=self.name,
+                passed=len(findings) == 0,
+                findings=findings,
+                duration_ms=duration_ms,
+                metadata={"tool": "eslint"},
+            )
+
         if ext not in _SUPPORTED_EXTENSIONS:
             duration_ms = (time.perf_counter() - start) * 1000
             logger.debug("[lint] skipping unsupported extension: %s", ext)
