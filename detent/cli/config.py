@@ -13,13 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Empty config subcommand group stub (will be populated in a later task)."""
+"""Config subcommand group for detent CLI."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import click
+import yaml
+
+from detent.config import DetentConfig
 
 from .app import main
+from .utils import console
 
 
 @main.group()
@@ -27,3 +33,33 @@ from .app import main
 def config(ctx: click.Context) -> None:
     """Manage Detent configuration."""
     pass
+
+
+@config.command(name="validate")
+@click.pass_context
+def config_validate(ctx: click.Context) -> None:
+    """Validate detent.yaml, print errors, exit 1 if invalid."""
+    config_path = ctx.obj.get("config_path") if ctx.obj else None
+    try:
+        if config_path and not Path(config_path).exists():
+            console.print(f"[red]✗ Configuration invalid:[/red] File not found: {config_path}")
+            raise SystemExit(1)
+        cfg = DetentConfig.load(path=config_path)
+        console.print("[green]✓ Configuration is valid[/green]")
+        console.print(f"  policy={cfg.policy}, stages={len(cfg.pipeline.stages)}")
+    except Exception as e:
+        console.print(f"[red]✗ Configuration invalid:[/red] {e}")
+        raise SystemExit(1) from e
+
+
+@config.command(name="show")
+@click.pass_context
+def config_show(ctx: click.Context) -> None:
+    """Pretty-print resolved configuration as YAML."""
+    config_path = ctx.obj.get("config_path") if ctx.obj else None
+    try:
+        cfg = DetentConfig.load(path=config_path)
+        click.echo(yaml.dump(cfg.model_dump(), default_flow_style=False))
+    except Exception as e:
+        console.print(f"[red]✗ Failed to load configuration:[/red] {e}")
+        raise SystemExit(1) from e
