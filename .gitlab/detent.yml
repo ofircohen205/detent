@@ -1,0 +1,30 @@
+.detent:
+  stage: verify
+  image: python:3.12-slim
+  variables:
+    DETENT_CONFIG: "detent.yaml"
+    DETENT_BASE_REF: $CI_MERGE_REQUEST_DIFF_BASE_SHA
+  before_script:
+    - pip install uv && uv tool install detent && export PATH="$(uv tool bin-dir):$PATH"
+  script:
+    - |
+      BASE=${DETENT_BASE_REF:-HEAD~1}
+      ERRORS=0
+      for file in $(git diff --name-only "$BASE" HEAD --); do
+        [ -f "$file" ] || continue
+        OUTPUT=$(DETENT_CONFIG="$DETENT_CONFIG" detent run "$file" --json)
+        echo "$OUTPUT" | python3 -c "
+      import json, sys
+      r = json.load(sys.stdin)
+      if r.get('error'):
+          print(f\"ERROR internal: {r['error']}\")
+          sys.exit(1)
+      for f in r.get('findings', []):
+          print(f\"{f['severity'].upper()} {f['file']}:{f.get('line','?')} {f['message']}\")
+      sys.exit(0 if r.get('passed', True) else 1)
+      " || ERRORS=$((ERRORS + 1))
+      done
+      [ $ERRORS -gt 0 ] && exit 1 || exit 0
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

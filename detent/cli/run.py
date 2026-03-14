@@ -22,7 +22,7 @@ import copy
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import click
@@ -38,6 +38,9 @@ from .utils import _policy_allows, console
 
 logger = logging.getLogger(__name__)
 
+if TYPE_CHECKING:
+    from detent.pipeline.result import VerificationResult
+
 _KNOWN_STAGES = frozenset({"syntax", "lint", "typecheck", "tests"})
 
 
@@ -48,7 +51,7 @@ async def run_file(
     dry_run: bool = False,
     stage_filter: tuple[str, ...] = (),
     json_mode: bool = False,
-) -> bool:
+) -> tuple[bool, VerificationResult]:
     """Execute verification pipeline for a file.
 
     Args:
@@ -60,7 +63,7 @@ async def run_file(
         json_mode: If True, emit JSON to stdout instead of Rich output.
 
     Returns:
-        True if passed, False if failed.
+        Tuple of (passed, VerificationResult).
     """
     path = Path(file_path).resolve()
 
@@ -107,54 +110,37 @@ async def run_file(
         console.print(f"\n[cyan]🔍 Running verification pipeline for {file_path}[/cyan]\n")
     result = await pipeline.run(action)
 
-    if json_mode:
-        output = {
-            "passed": result.passed,
-            "stage": result.stage,
-            "findings": [
-                {
-                    "severity": finding.severity,
-                    "file": finding.file,
-                    "line": finding.line,
-                    "column": finding.column,
-                    "message": finding.message,
-                    "code": finding.code,
-                    "fix_suggestion": finding.fix_suggestion,
-                }
-                for finding in result.findings
-            ],
-            "checkpoint_ref": ref if not dry_run else None,
-            "dry_run": dry_run,
-        }
-        click.echo(json.dumps(output))
-        return result.passed
-
     if result.passed:
-        console.print("[green]✅ All stages passed[/green]")
-        if not dry_run:
-            console.print(f"[cyan]Checkpoint: {ref}[/cyan]")
-        return True
+        if not json_mode:
+            console.print("[green]✅ All stages passed[/green]")
+            if not dry_run:
+                console.print(f"[cyan]Checkpoint: {ref}[/cyan]")
+        return True, result
 
-    console.print(f"[red]❌ Pipeline failed at {result.stage}[/red]\n")
-    for finding in result.findings:
-        severity_color = "red" if finding.severity == "error" else "yellow"
-        console.print(
-            f"[{severity_color}]{finding.severity.upper()}[/{severity_color}] "
-            f"{finding.file}:{finding.line} {finding.message}"
-        )
-        if finding.fix_suggestion:
-            console.print(f"  [cyan]→ {finding.fix_suggestion}[/cyan]")
-    console.print()
+    if not json_mode:
+        console.print(f"[red]❌ Pipeline failed at {result.stage}[/red]\n")
+        for finding in result.findings:
+            severity_color = "red" if finding.severity == "error" else "yellow"
+            console.print(
+                f"[{severity_color}]{finding.severity.upper()}[/{severity_color}] "
+                f"{finding.file}:{finding.line} {finding.message}"
+            )
+            if finding.fix_suggestion:
+                console.print(f"  [cyan]→ {finding.fix_suggestion}[/cyan]")
+        console.print()
 
     if _policy_allows(result, config.policy):
-        console.print(f"[yellow]⚠ Policy allows proceeding (policy={config.policy})[/yellow]\n")
-        return True
+        if not json_mode:
+            console.print(f"[yellow]⚠ Policy allows proceeding (policy={config.policy})[/yellow]\n")
+        return True, result
 
     if dry_run:
-        console.print("[yellow]⚠ Dry run — skipping rollback[/yellow]\n")
-        return False
+        if not json_mode:
+            console.print("[yellow]⚠ Dry run — skipping rollback[/yellow]\n")
+        return False, result
 
-    console.print(f"[yellow]🔄 Rolling back to {ref}[/yellow]\n")
+    if not json_mode:
+        console.print(f"[yellow]🔄 Rolling back to {ref}[/yellow]\n")
     try:
         await checkpoint_engine.rollback(ref)
         mgr.update_checkpoint_status(session, ref, "rolled_back")
@@ -163,9 +149,10 @@ async def run_file(
         logger.error(f"Rollback failed: {e}")
         mgr.update_checkpoint_status(session, ref, "rollback_failed")
         mgr.save(session)
-        raise click.ClickException(f"Rollback failed: {e}") from e
+        result.metadata["rollback_failed"] = True
+        return False, result
 
-    return False
+    return False, result
 
 
 @main.command()
@@ -198,7 +185,7 @@ def run(
         session = mgr.load_or_create()
         mgr.save(session)
         config = DetentConfig.load(path=config_path)
-        result = asyncio.run(
+        passed, result = asyncio.run(
             run_file(
                 file_path,
                 config,
@@ -208,8 +195,44 @@ def run(
                 json_mode=json_mode,
             )
         )
-        raise SystemExit(0 if result else 1)
-    except click.ClickException:
+        if json_mode:
+            output = {
+                "passed": passed,
+                "file": file_path,
+                "stage": result.stage,
+                "duration_ms": result.duration_ms,
+                "findings": [
+                    {
+                        "severity": finding.severity,
+                        "file": finding.file,
+                        "line": finding.line,
+                        "column": finding.column,
+                        "message": finding.message,
+                        "code": finding.code,
+                        "stage": finding.stage,
+                        "fix_suggestion": finding.fix_suggestion,
+                    }
+                    for finding in result.findings
+                ],
+            }
+            if result.metadata.get("rollback_failed"):
+                output["rollback_failed"] = True
+            click.echo(json.dumps(output))
+            raise SystemExit(0 if passed else 1)
+        raise SystemExit(0 if passed else 1)
+    except click.ClickException as exc:
+        if json_mode:
+            click.echo(
+                json.dumps(
+                    {
+                        "passed": False,
+                        "file": file_path,
+                        "error": str(exc),
+                        "findings": [],
+                    }
+                )
+            )
+            raise SystemExit(1) from exc
         raise
     except Exception as e:
         logger.error(f"Run failed: {e}")

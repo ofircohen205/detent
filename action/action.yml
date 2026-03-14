@@ -1,0 +1,48 @@
+name: "Detent"
+description: "Run detent on changed files and annotate findings"
+inputs:
+  config:
+    description: "Path to detent.yaml (sets DETENT_CONFIG env var)"
+    default: "detent.yaml"
+    required: false
+  base-ref:
+    description: "Base ref to diff against. Defaults to PR base or HEAD~1 on push."
+    default: ""
+    required: false
+  python-version:
+    description: "Python version for detent"
+    default: "3.12"
+    required: false
+outputs:
+  findings-count:
+    description: "Total number of findings (errors + warnings)"
+    value: ${{ steps.run-detent.outputs.findings-count }}
+  errors-count:
+    description: "Number of error-level findings"
+    value: ${{ steps.run-detent.outputs.errors-count }}
+runs:
+  using: "composite"
+  steps:
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Install detent
+      shell: bash
+      run: |
+        uv tool install detent
+        echo "$(uv tool bin-dir)" >> "$GITHUB_PATH"
+    - name: Get changed files
+      id: changed
+      shell: bash
+      env:
+        DETENT_BASE_REF_INPUT: ${{ inputs.base-ref }}
+        DETENT_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      run: action/scripts/get-changed-files.sh
+    - name: Run detent
+      id: run-detent
+      shell: bash
+      env:
+        DETENT_CONFIG: ${{ inputs.config }}
+        DETENT_FILES: ${{ steps.changed.outputs.files }}
+      run: action/scripts/run-detent.sh

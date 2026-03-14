@@ -72,9 +72,9 @@ async def test_full_workflow(tmp_path):
         mock_checkpoint.return_value = mock_checkpoint_instance
 
         # Run verification
-        result = await run_file(str(test_file), config, session)
+        passed, _ = await run_file(str(test_file), config, session)
 
-        assert result is True
+        assert passed is True
         assert len(session["checkpoints"]) == 1
         assert session["checkpoints"][0]["ref"] == "chk_before_write_000"
 
