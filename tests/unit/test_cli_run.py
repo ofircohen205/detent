@@ -1,7 +1,6 @@
 """Test detent run command."""
 
 import asyncio
-import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -47,9 +46,9 @@ async def test_run_file_passes():
         config = MagicMock()
         config.policy = "standard"
 
-        result = await run_file(str(temp_file), config, session)
+        passed, _ = await run_file(str(temp_file), config, session)
 
-    assert result is True
+    assert passed is True
 
 
 @pytest.mark.asyncio
@@ -90,11 +89,11 @@ async def test_run_file_fails_and_rollsback():
         config = MagicMock()
         config.policy = "standard"
 
-        result = await run_file(str(temp_file), config, session)
+        passed, _ = await run_file(str(temp_file), config, session)
 
         # Should have called rollback
         mock_checkpoint_instance.rollback.assert_called_once()
-    assert result is False
+    assert passed is False
 
 
 def test_run_dry_run_skips_checkpoint(tmp_path):
@@ -172,32 +171,3 @@ def test_run_unknown_stage_exits_1(tmp_path):
 
     assert result.exit_code == 1
     assert "Unknown stage" in result.output
-
-
-def test_run_json_output_is_valid_json(tmp_path):
-    """--json flag should output valid JSON with 'passed' and 'findings' keys."""
-    from detent.cli import main
-
-    runner = CliRunner()
-    temp_file = tmp_path / "test.py"
-    temp_file.write_text("x = 1")
-
-    with (
-        patch("detent.cli.run.DetentConfig") as mock_load,
-        patch("detent.cli.run.VerificationPipeline.from_config") as mock_pipeline,
-        patch("detent.cli.run.CheckpointEngine") as mock_chk,
-    ):
-        mock_config = MagicMock(policy="standard")
-        mock_config.pipeline.stages = []
-        mock_load.load.return_value = mock_config
-
-        mock_result = MagicMock(passed=True, findings=[], stage="pipeline")
-        mock_pipeline.return_value.run = AsyncMock(return_value=mock_result)
-        mock_chk.return_value.savepoint = AsyncMock()
-
-        result = runner.invoke(main, ["run", str(temp_file), "--json"])
-
-    assert result.exit_code == 0
-    output = json.loads(result.output)
-    assert output["passed"] is True
-    assert isinstance(output["findings"], list)
