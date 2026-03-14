@@ -35,36 +35,39 @@ def detect_agent() -> str:
     """Auto-detect the agent type.
 
     Detection priority:
-    1. ANTHROPIC_BASE_URL or OPENAI_BASE_URL env vars
-    2. Claude Code config at ~/.claude/config.json
-    3. langgraph in pyproject.toml
-    4. agent.py or agents/ directory
-    5. Default to claude-code
+    1. ANTHROPIC_BASE_URL env var → claude-code
+    2. OPENAI_BASE_URL env var → cursor
+    3. .claude/settings.json OR .claude/config.json (project or home) → claude-code
+    4. .cursor/ in project root or ~/.cursor/ in home dir → cursor
+    5. langgraph in pyproject.toml → langgraph
+    6. agent.py or agents/ directory → langgraph
+    7. Default → unknown
     """
-    # Check environment variables
     if os.getenv("ANTHROPIC_BASE_URL"):
         return "claude-code"
     if os.getenv("OPENAI_BASE_URL"):
         return "cursor"
 
-    # Check for Claude Code config
-    cc_config = Path.home() / ".claude" / "config.json"
-    if cc_config.exists():
+    home = Path.home()
+    if (
+        (Path(".claude") / "settings.json").exists()
+        or (Path(".claude") / "config.json").exists()
+        or (home / ".claude" / "settings.json").exists()
+        or (home / ".claude" / "config.json").exists()
+    ):
         return "claude-code"
 
-    # Check for langgraph in pyproject.toml
-    pyproject = Path("pyproject.toml")
-    if pyproject.exists():
-        content = pyproject.read_text()
-        if "langgraph" in content:
-            return "langgraph"
+    if Path(".cursor").exists() or (home / ".cursor").exists():
+        return "cursor"
 
-    # Check for agent files
+    pyproject = Path("pyproject.toml")
+    if pyproject.exists() and "langgraph" in pyproject.read_text():
+        return "langgraph"
+
     if Path("agent.py").exists() or Path("agents/").exists():
         return "langgraph"
 
-    # Default
-    return "claude-code"
+    return "unknown"
 
 
 def create_session_dir(session_dir: Path | None = None) -> None:

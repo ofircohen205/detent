@@ -38,7 +38,7 @@ from . import config, init, rollback, run, status  # noqa: F401
 from .app import main  # noqa: F401
 
 # 3. Helper re-exports so `from detent.cli import X` keeps working
-from .init import init_interactive
+from .init import init_interactive, init_non_interactive
 from .rollback import do_rollback
 from .run import run_file
 from .session import SessionManager
@@ -61,6 +61,7 @@ __all__ = [
     "detect_agent",
     "logger",
     "init_interactive",
+    "init_non_interactive",
     "run_file",
     "show_status",
     "do_rollback",

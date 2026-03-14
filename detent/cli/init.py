@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import click
 import yaml
@@ -99,12 +100,55 @@ def init_interactive() -> None:
     console.print("[cyan]Ready to run: detent run <file>[/cyan]\n")
 
 
+def init_non_interactive(force: bool = False) -> None:
+    """Non-interactive setup: write defaults without prompts."""
+    config_file = Path("detent.yaml")
+    if config_file.exists() and not force:
+        raise click.ClickException("detent.yaml already exists. Use --force to overwrite.")
+
+    agent = detect_agent()
+    stages = [
+        StageConfig(name="syntax", enabled=True),
+        StageConfig(name="lint", enabled=True),
+        StageConfig(name="typecheck", enabled=True, timeout=30),
+        StageConfig(name="tests", enabled=True, timeout=60),
+    ]
+    config = DetentConfig(
+        agent=agent,
+        policy="standard",
+        proxy=ProxyConfig(host="127.0.0.1", port=7070),
+        pipeline=PipelineConfig(parallel=False, fail_fast=True, stages=stages),
+    )
+    with open("detent.yaml", "w") as f:
+        yaml.dump(config.model_dump(), f, default_flow_style=False)
+    create_session_dir()
+    console.print("[green]✓ Created detent.yaml[/green]")
+    console.print("[green]✓ Created .detent/session/[/green]")
+
+
 @main.command()
+@click.option(
+    "--non-interactive",
+    is_flag=True,
+    default=False,
+    help="Write defaults without prompts (suitable for CI)",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Overwrite existing detent.yaml",
+)
 @click.pass_context
-def init(ctx: click.Context) -> None:
+def init(ctx: click.Context, non_interactive: bool, force: bool) -> None:
     """Initialize Detent in this project."""
     try:
-        init_interactive()
+        if non_interactive:
+            init_non_interactive(force=force)
+        else:
+            init_interactive()
+    except click.ClickException:
+        raise
     except Exception as e:
         logger.error(f"Init failed: {e}")
         raise click.ClickException(str(e)) from e
