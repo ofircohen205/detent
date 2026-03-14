@@ -27,20 +27,20 @@ continue to work without modification.
 
 from __future__ import annotations
 
-# 4. Re-export third-party names that tests patch via "detent.cli.<Name>"
-from detent.checkpoint.engine import CheckpointEngine
-from detent.pipeline.pipeline import VerificationPipeline
+# Third-party names that tests patch via "detent.cli.<Name>"
+from detent.checkpoint.engine import CheckpointEngine  # noqa: F401
+from detent.pipeline.pipeline import VerificationPipeline  # noqa: F401
 
-# 2. Import command modules — each registers itself on `main` as a side effect
-from . import config, init, rollback, run, status
+# 2. Command modules — register themselves on main as a side effect
+from . import config, init, rollback, run, status  # noqa: F401
 
-# 1. Import the Click group first (no sibling imports)
-from .app import main
+# 1. Click group — must be first
+from .app import main  # noqa: F401
+
+# 3. Helper re-exports so `from detent.cli import X` keeps working
 from .init import init_interactive
 from .rollback import do_rollback
 from .run import run_file
-
-# 3. Re-export helpers so `from detent.cli import X` keeps working
 from .session import SessionManager
 from .status import show_status
 from .utils import _policy_allows, console, create_session_dir, detect_agent, logger

@@ -25,7 +25,9 @@ from uuid import uuid4
 
 import click
 
+from detent.checkpoint.engine import CheckpointEngine
 from detent.config import DetentConfig
+from detent.pipeline.pipeline import VerificationPipeline
 from detent.schema import ActionType, AgentAction, RiskLevel
 
 from .app import main
@@ -51,11 +53,9 @@ async def run_file(file_path: str, config: DetentConfig, session: dict[str, Any]
     if not path.exists():
         raise click.ClickException(f"File not found: {file_path}")
 
-    import detent.cli as _cli  # noqa: PLC0415 — deferred to pick up test patches
-
     # Load components
-    checkpoint_engine = _cli.CheckpointEngine()
-    pipeline = _cli.VerificationPipeline.from_config(config)
+    checkpoint_engine = CheckpointEngine()
+    pipeline = VerificationPipeline.from_config(config)
 
     # Create checkpoint reference
     ref = f"chk_before_write_{len(session['checkpoints']):03d}"

@@ -22,6 +22,8 @@ import logging
 
 import click
 
+from detent.checkpoint.engine import CheckpointEngine
+
 from .app import main
 from .session import SessionManager
 from .utils import console
@@ -49,9 +51,7 @@ async def do_rollback(ref: str) -> None:
 
     console.print(f"\n[cyan]🔄 Rolling back to {ref} ({checkpoint['file']})[/cyan]\n")
 
-    import detent.cli as _cli  # noqa: PLC0415 — deferred to pick up test patches
-
-    checkpoint_engine = _cli.CheckpointEngine()
+    checkpoint_engine = CheckpointEngine()
 
     try:
         await checkpoint_engine.rollback(ref)

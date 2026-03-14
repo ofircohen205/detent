@@ -74,7 +74,7 @@ async def test_do_rollback(tmp_path):
         mock_mgr.get_checkpoint.return_value = session["checkpoints"][0]
         mock_mgr_class.return_value = mock_mgr
 
-        with patch("detent.cli.CheckpointEngine") as mock_chk_class:
+        with patch("detent.cli.rollback.CheckpointEngine") as mock_chk_class:
             mock_chk = MagicMock()
             mock_chk.rollback = AsyncMock()
             mock_chk_class.return_value = mock_chk

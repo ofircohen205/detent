@@ -24,8 +24,8 @@ async def test_run_file_passes():
     }
 
     with (
-        patch("detent.cli.VerificationPipeline.from_config") as mock_pipeline,
-        patch("detent.cli.CheckpointEngine") as mock_chk_class,
+        patch("detent.cli.run.VerificationPipeline.from_config") as mock_pipeline,
+        patch("detent.cli.run.CheckpointEngine") as mock_chk_class,
     ):
         # Mock pipeline result
         mock_result = MagicMock()
@@ -66,8 +66,8 @@ async def test_run_file_fails_and_rollsback():
     }
 
     with (
-        patch("detent.cli.VerificationPipeline.from_config") as mock_pipeline,
-        patch("detent.cli.CheckpointEngine") as mock_chk_class,
+        patch("detent.cli.run.VerificationPipeline.from_config") as mock_pipeline,
+        patch("detent.cli.run.CheckpointEngine") as mock_chk_class,
     ):
         # Mock failed pipeline result
         mock_result = MagicMock()
