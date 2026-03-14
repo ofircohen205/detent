@@ -17,21 +17,12 @@
 
 from __future__ import annotations
 
-from typing import Any, Final
-
-try:
-    import tree_sitter_javascript as tsjavascript
-    import tree_sitter_python as tspython
-    import tree_sitter_typescript as tstypescript
-    from tree_sitter import Language
-except ImportError:
-    tsjavascript = None
-    tspython = None
-    tstypescript = None
-    Language = Any
+from typing import Final
 
 PYTHON_EXTENSIONS: Final[frozenset[str]] = frozenset({".py"})
 JS_TS_EXTENSIONS: Final[frozenset[str]] = frozenset({".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"})
+GO_EXTENSIONS: Final[frozenset[str]] = frozenset({".go"})
+RUST_EXTENSIONS: Final[frozenset[str]] = frozenset({".rs"})
 
 ESLINT_CONFIG_FILES: Final[tuple[str, ...]] = (
     "eslint.config.js",
@@ -47,13 +38,6 @@ ESLINT_CONFIG_FILES: Final[tuple[str, ...]] = (
 TS_CONFIG_FILENAME: Final[str] = "tsconfig.json"
 TS_EXTENSIONS: Final[frozenset[str]] = frozenset({".ts", ".tsx"})
 
-if tsjavascript and tspython and tstypescript and Language:
-    TREE_SITTER_LANGUAGE_MAP: Final[dict[str, Language]] = {
-        ".py": Language(tspython.language()),
-        ".js": Language(tsjavascript.language()),
-        ".jsx": Language(tsjavascript.language()),
-        ".ts": Language(tstypescript.language_typescript()),
-        ".tsx": Language(tstypescript.language_tsx()),
-    }
-else:
-    TREE_SITTER_LANGUAGE_MAP: Final[dict[str, Language]] = {}
+# TREE_SITTER_LANGUAGE_MAP moved to syntax.py (Task 3)
+# Keeping this stub import path for backward compatibility during refactoring
+TREE_SITTER_LANGUAGE_MAP: Final[dict] = {}  # noqa: F841
