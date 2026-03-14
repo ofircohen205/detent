@@ -132,8 +132,9 @@ async def run_file(file_path: str, config: DetentConfig, session: dict[str, Any]
 
 
 @main.command()
+@click.pass_context
 @click.argument("file_path")
-def run(file_path: str) -> None:
+def run(ctx: click.Context, file_path: str) -> None:
     """Verify a file through the full pipeline."""
     try:
         # Load session and config
@@ -141,7 +142,8 @@ def run(file_path: str) -> None:
         session = mgr.load_or_create()
         mgr.save(session)
 
-        config = DetentConfig.load()
+        config_path = ctx.obj.get("config_path") if ctx.obj else None
+        config = DetentConfig.load(path=config_path)
 
         # Run verification
         result = asyncio.run(run_file(file_path, config, session))

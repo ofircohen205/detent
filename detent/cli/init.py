@@ -100,7 +100,8 @@ def init_interactive() -> None:
 
 
 @main.command()
-def init() -> None:
+@click.pass_context
+def init(ctx: click.Context) -> None:
     """Initialize Detent in this project."""
     try:
         init_interactive()

@@ -66,8 +66,9 @@ async def do_rollback(ref: str) -> None:
 
 
 @main.command()
+@click.pass_context
 @click.argument("checkpoint_ref")
-def rollback(checkpoint_ref: str) -> None:
+def rollback(ctx: click.Context, checkpoint_ref: str) -> None:
     """Restore a file to a checkpoint."""
     try:
         asyncio.run(do_rollback(checkpoint_ref))

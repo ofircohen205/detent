@@ -57,7 +57,8 @@ def show_status() -> None:
 
 
 @main.command()
-def status() -> None:
+@click.pass_context
+def status(ctx: click.Context) -> None:
     """Show active session and checkpoints."""
     try:
         show_status()

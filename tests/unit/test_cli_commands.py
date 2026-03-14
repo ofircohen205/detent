@@ -1,6 +1,21 @@
 """Test Click CLI commands."""
 
+from __future__ import annotations
+
+import logging
+import pathlib
+from unittest.mock import MagicMock, patch
+
+import pytest
 from click.testing import CliRunner
+
+
+@pytest.fixture(autouse=True)
+def reset_root_log_level():
+    """Reset root log level after each test."""
+    original = logging.root.level
+    yield
+    logging.root.setLevel(original)
 
 
 def test_cli_version():
@@ -70,3 +85,81 @@ def test_rollback_command_help():
 
     assert result.exit_code == 0
     assert "checkpoint" in result.output.lower()
+
+
+def test_verbose_sets_debug_logging() -> None:
+    """--verbose flag should set root logging level to DEBUG."""
+    from detent.cli import main
+
+    runner = CliRunner()
+    runner.invoke(main, ["--verbose", "status"])
+    assert logging.root.level == logging.DEBUG
+
+
+def test_verbose_short_flag_sets_debug_logging() -> None:
+    """-v short flag should set root logging level to DEBUG."""
+    from detent.cli import main
+
+    runner = CliRunner()
+    runner.invoke(main, ["-v", "status"])
+    assert logging.root.level == logging.DEBUG
+
+
+def test_config_flag_accepted(tmp_path: pathlib.Path) -> None:
+    """--config flag should be accepted without error on status command."""
+    from detent.cli import main
+
+    config_file = tmp_path / "detent.yaml"
+    config_file.write_text("policy: strict\n")
+    runner = CliRunner()
+    result = runner.invoke(main, ["--config", str(config_file), "status"])
+    assert result.exit_code == 0
+
+
+def test_config_path_propagated_to_run(tmp_path: pathlib.Path) -> None:
+    """--config flag should pass the path to DetentConfig.load() when run is invoked."""
+    from detent.cli import main
+
+    config_file = tmp_path / "detent.yaml"
+    config_file.write_text("policy: standard\n")
+    target_file = tmp_path / "main.py"
+    target_file.write_text("x = 1\n")
+
+    runner = CliRunner()
+    with patch("detent.cli.run.DetentConfig") as mock_cfg:
+        mock_cfg.load.return_value = MagicMock(
+            policy="standard",
+            pipeline=MagicMock(stages=[]),
+            get_enabled_stages=lambda: [],
+        )
+        runner.invoke(main, ["--config", str(config_file), "run", str(target_file)])
+        mock_cfg.load.assert_called_once_with(path=str(config_file))
+
+
+def test_no_config_flag_passes_none_to_run(tmp_path: pathlib.Path) -> None:
+    """Without --config, DetentConfig.load() should be called with path=None."""
+    from detent.cli import main
+
+    target_file = tmp_path / "main.py"
+    target_file.write_text("x = 1\n")
+
+    runner = CliRunner()
+    with patch("detent.cli.run.DetentConfig") as mock_cfg:
+        mock_cfg.load.return_value = MagicMock(
+            policy="standard",
+            pipeline=MagicMock(stages=[]),
+            get_enabled_stages=lambda: [],
+        )
+        runner.invoke(main, ["run", str(target_file)])
+        mock_cfg.load.assert_called_once_with(path=None)
+
+
+def test_config_envvar_accepted(tmp_path: pathlib.Path) -> None:
+    """DETENT_CONFIG env var should be accepted as --config source."""
+    from detent.cli import main
+
+    config_file = tmp_path / "detent.yaml"
+    config_file.write_text("policy: permissive\n")
+    runner = CliRunner()
+    result = runner.invoke(main, ["status"], env={"DETENT_CONFIG": str(config_file)})
+    assert result.exit_code == 0

@@ -17,6 +17,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import click
 
 from detent import __version__
@@ -24,10 +26,22 @@ from detent import __version__
 
 @click.group()
 @click.version_option(version=__version__)
-def main() -> None:
+@click.option("--verbose", "-v", is_flag=True, default=False, help="Enable debug logging")
+@click.option(
+    "--config",
+    "config_path",
+    default=None,
+    envvar="DETENT_CONFIG",
+    help="Path to detent.yaml (overrides DETENT_CONFIG env var)",
+)
+@click.pass_context
+def main(ctx: click.Context, verbose: bool, config_path: str | None) -> None:
     """Detent: A verification runtime for AI coding agents.
 
     Detent intercepts file writes, runs them through a configurable verification
     pipeline, and rolls back atomically on failure.
     """
-    pass
+    ctx.ensure_object(dict)
+    ctx.obj["config_path"] = config_path
+    if verbose:
+        logging.root.setLevel(logging.DEBUG)

@@ -17,10 +17,13 @@
 
 from __future__ import annotations
 
+import click
+
 from .app import main
 
 
 @main.group()
-def config() -> None:
+@click.pass_context
+def config(ctx: click.Context) -> None:
     """Manage Detent configuration."""
     pass
