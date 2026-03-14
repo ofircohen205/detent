@@ -35,10 +35,18 @@ stages:
     enabled: true
     timeout: 60
 
-  # Security scanning — P1, disabled by default in v0.1
-  # - name: security
-  #   enabled: false
-  #   tools: [bandit, semgrep]
+  - name: security
+    enabled: true
+    timeout: 30
+    options:
+      semgrep:
+        enabled: true
+        rulesets:
+          - p/python
+          - p/owasp-top-ten
+      bandit:
+        enabled: true
+        confidence: low
 
 # Pipeline settings
 pipeline:

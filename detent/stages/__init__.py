@@ -19,11 +19,13 @@ from __future__ import annotations
 
 from detent.stages.base import VerificationStage
 from detent.stages.lint import LintStage
+from detent.stages.security import SecurityStage
 from detent.stages.syntax import SyntaxStage
 from detent.stages.tests import TestsStage
 from detent.stages.typecheck import TypecheckStage
 
 STAGE_REGISTRY: dict[str, type[VerificationStage]] = {
+    "security": SecurityStage,
     "syntax": SyntaxStage,
     "lint": LintStage,
     "typecheck": TypecheckStage,
@@ -32,6 +34,7 @@ STAGE_REGISTRY: dict[str, type[VerificationStage]] = {
 
 __all__ = [
     "LintStage",
+    "SecurityStage",
     "STAGE_REGISTRY",
     "SyntaxStage",
     "TestsStage",

@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 from detent.pipeline.result import Finding, VerificationResult
 
 if TYPE_CHECKING:
+    from detent.config import StageConfig
     from detent.schema import AgentAction
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,9 @@ class VerificationStage(ABC):
     Subclasses implement _run(). The public run() wraps _run() with
     exception handling so a stage crash never propagates to the pipeline.
     """
+
+    def __init__(self, config: StageConfig | None = None) -> None:
+        self._config = config
 
     @property
     @abstractmethod

@@ -81,7 +81,7 @@ class VerificationPipeline:
             if stage_cls is None:
                 logger.warning("[pipeline] unknown stage '%s'; skipping", stage_cfg.name)
                 continue
-            stages.append(stage_cls())
+            stages.append(stage_cls(stage_cfg))
         logger.info("[pipeline] built from config: %s", [s.name for s in stages])
         return cls(stages=stages, config=config.pipeline)
 

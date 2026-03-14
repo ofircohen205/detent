@@ -48,6 +48,7 @@ from detent.proxy.types import DetentSessionConflictError, IPCMessageType
 from detent.schema import ActionType, AgentAction, RiskLevel
 from detent.stages.base import VerificationStage
 from detent.stages.lint import LintStage
+from detent.stages.security import SecurityStage
 from detent.stages.syntax import SyntaxStage
 from detent.stages.tests import TestsStage
 from detent.stages.typecheck import TypecheckStage
@@ -81,6 +82,7 @@ __all__ = [
     "VerificationStage",
     "SyntaxStage",
     "LintStage",
+    "SecurityStage",
     "TypecheckStage",
     "TestsStage",
     # Adapters
