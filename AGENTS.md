@@ -210,7 +210,7 @@ Stages are composable and configured via `detent.yaml`. They run sequentially by
 
 | Stage                 | Tools                                                          |
 | --------------------- | -------------------------------------------------------------- |
-| **Security scanning** | Bandit, Semgrep (OWASP ruleset), Gitleaks                      |
+| **Security scanning** | Bandit + Semgrep (configurable rulesets)                       |
 | **Dependency audit**  | pip-audit, npm audit, hallucinated package detection           |
 | **Static analysis**   | Semgrep custom rules, configurable ruleset                     |
 | **Test generation**   | LLM-assisted test scaffold for uncovered code paths (optional) |
@@ -230,9 +230,18 @@ stages:
   - name: tests
     enabled: true
     timeout: 60s
-  - name: security # P1
-    enabled: false
-    tools: [bandit, semgrep]
+  - name: security
+    enabled: true
+    timeout: 30
+    options:
+      semgrep:
+        enabled: true
+        rulesets:
+          - p/python
+          - p/owasp-top-ten
+      bandit:
+        enabled: true
+        confidence: low
 
 policy: standard # strict | standard | permissive
 agent: claude-code # detected automatically by `detent init`
@@ -638,7 +647,7 @@ async def run(self, action: AgentAction) -> VerificationResult:
 ### v1.0 — Production Ready (6 months)
 
 - All 7 agent adapters complete
-- Full security scanning pipeline (Bandit, Semgrep, Gitleaks)
+- Security scanning pipeline (Bandit + Semgrep; Gitleaks TBD)
 - Plugin system with entry point discovery
 - GitHub Actions integration
 - OpenTelemetry traces

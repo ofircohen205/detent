@@ -75,6 +75,15 @@ def init_interactive() -> None:
         StageConfig(name="lint", enabled=True),
         StageConfig(name="typecheck", enabled=True, timeout=30),
         StageConfig(name="tests", enabled=True, timeout=60),
+        StageConfig(
+            name="security",
+            enabled=True,
+            timeout=30,
+            options={
+                "semgrep": {"enabled": True, "rulesets": ["p/python", "p/owasp-top-ten"]},
+                "bandit": {"enabled": True, "confidence": "low"},
+            },
+        ),
     ]
 
     config = DetentConfig(
@@ -112,6 +121,15 @@ def init_non_interactive(force: bool = False) -> None:
         StageConfig(name="lint", enabled=True),
         StageConfig(name="typecheck", enabled=True, timeout=30),
         StageConfig(name="tests", enabled=True, timeout=60),
+        StageConfig(
+            name="security",
+            enabled=True,
+            timeout=30,
+            options={
+                "semgrep": {"enabled": True, "rulesets": ["p/python", "p/owasp-top-ten"]},
+                "bandit": {"enabled": True, "confidence": "low"},
+            },
+        ),
     ]
     config = DetentConfig(
         agent=agent,
