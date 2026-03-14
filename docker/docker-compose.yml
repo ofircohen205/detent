@@ -34,16 +34,19 @@ services:
     volumes:
       # Mount config file from host so edits take effect on restart
       - ./detent.yaml:/app/detent.yaml:ro
+      - detent-session:/app/.detent/session
     environment:
       DETENT_CONFIG: /app/detent.yaml
       DETENT_LOG_LEVEL: ${DETENT_LOG_LEVEL:-INFO}
+      ANTHROPIC_BASE_URL: http://proxy:7070
+      OPENAI_BASE_URL: http://proxy:7070
     healthcheck:
       test:
         [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:7070/healthz')",
+      "CMD",
+      "python",
+      "-c",
+      "import urllib.request; urllib.request.urlopen('http://localhost:7070/health')",
         ]
       interval: 30s
       timeout: 5s
@@ -81,3 +84,7 @@ services:
 networks:
   detent-net:
     driver: bridge
+
+volumes:
+  detent-session:
+    driver: local

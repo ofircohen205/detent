@@ -32,7 +32,7 @@ from detent.checkpoint.engine import CheckpointEngine  # noqa: F401
 from detent.pipeline.pipeline import VerificationPipeline  # noqa: F401
 
 # 2. Command modules — register themselves on main as a side effect
-from . import config, init, rollback, run, status  # noqa: F401
+from . import config, init, proxy, rollback, run, status  # noqa: F401
 
 # 1. Click group — must be first
 from .app import main  # noqa: F401
@@ -50,6 +50,7 @@ __all__ = [
     # command modules (imported for side-effect registration)
     "config",
     "init",
+    "proxy",
     "rollback",
     "run",
     "status",
