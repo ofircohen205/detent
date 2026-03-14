@@ -31,14 +31,29 @@ from .utils import console
 logger = logging.getLogger(__name__)
 
 
-async def do_rollback(ref: str) -> None:
+async def do_rollback(
+    ref: str | None,
+    latest: bool = False,
+    yes: bool = False,
+) -> None:
     """Restore file to checkpoint.
 
     Args:
-        ref: Checkpoint reference
+        ref: Checkpoint reference, or None when using --latest.
+        latest: If True, roll back the most recent checkpoint.
+        yes: Skip confirmation prompt.
     """
     mgr = SessionManager()
     session = mgr.load_or_create()
+
+    if latest:
+        created = [c for c in session["checkpoints"] if c["status"] == "created"]
+        if not created:
+            raise click.ClickException("No checkpoints to roll back")
+        ref = created[-1]["ref"]
+
+    if ref is None:
+        raise click.ClickException("Specify a checkpoint ref or use --latest")
 
     checkpoint = mgr.get_checkpoint(session, ref)
 
@@ -49,10 +64,15 @@ async def do_rollback(ref: str) -> None:
             console.print(f"[yellow]Available: {', '.join(available)}[/yellow]")
         raise click.ClickException(f"Checkpoint not found: {ref}")
 
-    console.print(f"\n[cyan]🔄 Rolling back to {ref} ({checkpoint['file']})[/cyan]\n")
+    console.print(f"\n[cyan]🔄 Rollback {ref} → {checkpoint['file']}[/cyan]")
+
+    if not yes:
+        confirmed = click.confirm(f"Restore {checkpoint['file']} to {ref}?", default=False)
+        if not confirmed:
+            console.print("Aborted")
+            return
 
     checkpoint_engine = CheckpointEngine()
-
     try:
         await checkpoint_engine.rollback(ref)
         mgr.update_checkpoint_status(session, ref, "restored")
@@ -66,12 +86,24 @@ async def do_rollback(ref: str) -> None:
 
 
 @main.command()
+@click.argument("checkpoint_ref", required=False, default=None)
+@click.option(
+    "--latest",
+    is_flag=True,
+    default=False,
+    help="Roll back to the most recent checkpoint with status 'created'",
+)
+@click.option("--yes", "-y", is_flag=True, default=False, help="Skip confirmation prompt")
 @click.pass_context
-@click.argument("checkpoint_ref")
-def rollback(ctx: click.Context, checkpoint_ref: str) -> None:
-    """Restore a file to a checkpoint."""
+def rollback(ctx: click.Context, checkpoint_ref: str | None, latest: bool, yes: bool) -> None:
+    """Restore a file to a checkpoint.
+
+    Specify CHECKPOINT_REF or use --latest to select the most recent checkpoint.
+    """
+    if not checkpoint_ref and not latest:
+        raise click.UsageError("Specify a CHECKPOINT_REF or use --latest")
     try:
-        asyncio.run(do_rollback(checkpoint_ref))
+        asyncio.run(do_rollback(ref=checkpoint_ref, latest=latest, yes=yes))
     except click.ClickException:
         raise
     except Exception as e:
