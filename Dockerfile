@@ -4,10 +4,11 @@
 #
 # Uses uv inside the build stage to install dependencies into a virtual
 # environment, then copies only the venv + package into the slim runtime image.
-FROM python:3.12-slim AS builder
+ARG PYTHON_VERSION=3.12
+FROM python:${PYTHON_VERSION}-slim AS builder
 
 # Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /usr/local/bin/uv
 
 WORKDIR /build
 
@@ -22,7 +23,7 @@ COPY . .
 
 
 # ─── Stage 2: Runtime ────────────────────────────────────────────────────────
-FROM python:3.12-slim AS runtime
+FROM python:${PYTHON_VERSION}-slim AS runtime
 
 # Non-root user for security
 RUN groupadd -r detent && useradd -r -g detent detent
@@ -53,7 +54,7 @@ USER detent
 
 # Health check: hit the proxy liveness endpoint
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:7070/healthz')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:7070/health')" || exit 1
 
-# Default command: start the proxy
-CMD ["python", "-m", "detent.proxy.http_proxy"]
+# Default command: start the proxy via CLI
+CMD ["detent", "proxy"]
