@@ -38,9 +38,6 @@ from detent.stages.lint_js import run_eslint
 
 logger = logging.getLogger(__name__)
 
-_SUPPORTED_EXTENSIONS = PYTHON_EXTENSIONS
-_JS_EXTENSIONS = JS_TS_EXTENSIONS
-
 
 class LintStage(VerificationStage):
     """Lints proposed file content using Ruff.
@@ -66,7 +63,7 @@ class LintStage(VerificationStage):
             _validate_file_path(file_path)
 
         ext = Path(file_path).suffix.lower()
-        if ext in _JS_EXTENSIONS:
+        if ext in JS_TS_EXTENSIONS:
             findings = await run_eslint(
                 file_path,
                 content,
@@ -81,7 +78,7 @@ class LintStage(VerificationStage):
                 metadata={"tool": "eslint"},
             )
 
-        if ext not in _SUPPORTED_EXTENSIONS:
+        if ext not in PYTHON_EXTENSIONS:
             duration_ms = (time.perf_counter() - start) * 1000
             logger.debug("[lint] skipping unsupported extension: %s", ext)
             return VerificationResult(
