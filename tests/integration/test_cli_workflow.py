@@ -94,7 +94,7 @@ async def test_full_workflow(tmp_path):
         # This would be called by do_rollback
         from detent.cli import do_rollback
 
-        await do_rollback("chk_before_write_000")
+        await do_rollback("chk_before_write_000", yes=True)
 
         # Verify rollback was called
         mock_checkpoint_instance.rollback.assert_called_once_with("chk_before_write_000")
