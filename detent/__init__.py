@@ -25,7 +25,14 @@ __version__ = "0.1.0"
 
 from detent.adapters.base import AgentAdapter
 from detent.adapters.claude_code import ClaudeCodeAdapter
+from detent.adapters.codex import CodexAdapter
+from detent.adapters.cursor import CursorAdapter
+from detent.adapters.gemini import GeminiAdapter
+from detent.adapters.hook import HookAdapter
+from detent.adapters.http_proxy import HTTPProxyAdapter
 from detent.adapters.langgraph import LangGraphAdapter
+from detent.adapters.litellm import LiteLLMAdapter
+from detent.adapters.openapi import OpenAPIAdapter
 from detent.checkpoint.engine import CheckpointEngine
 from detent.config import DetentConfig, PipelineConfig, ProxyConfig, StageConfig
 from detent.feedback.synthesizer import (
@@ -79,7 +86,14 @@ __all__ = [
     # Adapters
     "AgentAdapter",
     "ClaudeCodeAdapter",
+    "CursorAdapter",
+    "CodexAdapter",
     "LangGraphAdapter",
+    "LiteLLMAdapter",
+    "GeminiAdapter",
+    "OpenAPIAdapter",
+    "HTTPProxyAdapter",
+    "HookAdapter",
     # Types
     "DetentSessionConflictError",
     "IPCMessageType",

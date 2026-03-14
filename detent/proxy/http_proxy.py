@@ -23,7 +23,6 @@ import logging
 import ssl
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 from urllib.parse import urlparse
 
 import aiohttp
@@ -38,8 +37,7 @@ _ALLOWED_UPSTREAM_HOSTS: frozenset[str] = frozenset({"api.anthropic.com", "api.o
 class DetentProxy:
     """HTTP reverse proxy intercepting LLM API traffic.
 
-    Listens on 127.0.0.1:{port}, forwards all requests to upstream LLM API,
-    extracts tool calls before returning response to client.
+    Listens on 127.0.0.1:{port}, forwards all requests to upstream LLM API.
     """
 
     def __init__(
@@ -69,12 +67,13 @@ class DetentProxy:
         self.connect_timeout_s = connect_timeout_s
         self.session_dir = Path(session_dir or ".detent/session")
         self.is_running = False
-        self._app: web.Application | None = None
+        self._app: web.Application = web.Application()
         self._runner: web.AppRunner | None = None
         self._session_id: str | None = None
         self._retry_count = 0
         self._max_retries = 3
         self._session_lock = asyncio.Lock()
+        self._routes_configured = False
         if ssl_context is not None:
             self._ssl_context = ssl_context
         else:
@@ -82,9 +81,10 @@ class DetentProxy:
 
     async def start(self) -> None:
         """Start the HTTP proxy server."""
-        self._app = web.Application()
-        self._app.router.add_get("/health", self._health_handler)
-        self._app.router.add_route("*", "/{path_info:.*}", self._proxy_handler)
+        if not self._routes_configured:
+            self._app.router.add_get("/health", self._health_handler)
+            self._app.router.add_route("*", "/{path_info:.*}", self._proxy_handler)
+            self._routes_configured = True
 
         self._runner = web.AppRunner(self._app)
         await self._runner.setup()
@@ -202,20 +202,7 @@ class DetentProxy:
             logger.error("[proxy] forwarding failed: %s", e)
             return web.json_response({"error": "Upstream connection failed"}, status=502)
 
-    def extract_tool_calls(self, response: dict[str, Any]) -> list[dict[str, Any]]:
-        """Extract tool use blocks from Anthropic API response.
-
-        Args:
-            response: Anthropic API response dict
-
-        Returns:
-            List of tool use blocks (empty if none)
-        """
-        tool_calls = []
-        content = response.get("content", [])
-
-        for block in content:
-            if isinstance(block, dict) and block.get("type") == "tool_use":
-                tool_calls.append(block)
-
-        return tool_calls
+    @property
+    def app(self) -> web.Application:
+        """Expose aiohttp app for hook adapter registration."""
+        return self._app

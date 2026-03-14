@@ -44,7 +44,7 @@ class LangGraphAdapter(AgentAdapter):
         """Identifier for this adapter."""
         return "langgraph"
 
-    async def intercept(self, raw_event: dict[str, Any]) -> AgentAction:
+    async def intercept(self, raw_event: dict[str, Any]) -> AgentAction | None:
         """Normalize LangGraph tool call to AgentAction.
 
         Args:
@@ -57,17 +57,13 @@ class LangGraphAdapter(AgentAdapter):
         tool_input = raw_event.get("tool_input", {})
         tool_call_id = raw_event.get("tool_call_id", "")
 
-        # Map tool names to action types (same as Claude Code)
-        action_type_map: dict[str, ActionType] = {
-            "Write": ActionType.FILE_WRITE,
-            "Edit": ActionType.FILE_WRITE,
-            "Bash": ActionType.SHELL_EXEC,
-            "Read": ActionType.FILE_READ,
-            "WebFetch": ActionType.WEB_FETCH,
-        }
-        action_type = action_type_map.get(tool_name, ActionType.MCP_TOOL)
+        if not tool_name:
+            logger.debug("[langgraph] tool call missing name; skipping")
+            return None
 
-        if tool_name not in action_type_map:
+        action_type = self._ACTION_TYPE_MAP.get(tool_name, ActionType.MCP_TOOL)
+
+        if tool_name not in self._ACTION_TYPE_MAP:
             logger.warning(
                 "[langgraph] unknown tool %s, treating as mcp_tool",
                 tool_name,
@@ -96,41 +92,8 @@ class LangGraphAdapter(AgentAdapter):
         self,
         action: AgentAction,
         result: VerificationResult,
-    ) -> dict[str, Any] | None:
-        """Process verification result.
-
-        Args:
-            action: The verified action
-            result: Verification pipeline result
-
-        Returns:
-            None to allow, dict of modified tool_input for fixes
-
-        Raises:
-            ValueError: If verification found errors
-        """
-        if result.passed:
-            logger.info(
-                "[langgraph] verification passed for %s, allowing execution",
-                action.tool_name,
-            )
-            return None
-
-        # Check for errors vs warnings
-        errors = [f for f in result.findings if f.severity == "error"]
-        warnings = [f for f in result.findings if f.severity == "warning"]
-
-        if errors:
-            msg = f"Verification failed: {len(errors)} error(s) found"
-            logger.error("[langgraph] blocking %s: %s", action.tool_name, msg)
-            raise ValueError(msg)
-
-        if warnings:
-            logger.info(
-                "[langgraph] %d warning(s) found for %s, would apply ruff fixes",
-                len(warnings),
-                action.tool_name,
-            )
-            return None
-
-        return None
+    ) -> dict[str, Any]:
+        """Return allow/deny metadata for result."""
+        allow = result.passed or not any(f.severity == "error" for f in result.findings)
+        decision = "allow" if allow else "deny"
+        return {"permissionDecision": decision}
