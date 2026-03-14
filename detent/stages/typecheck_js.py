@@ -23,6 +23,7 @@ import logging
 import re
 from pathlib import Path
 
+from detent.config.languages import TS_CONFIG_FILENAME
 from detent.pipeline.result import Finding
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ _TSC_PATTERN = re.compile(r"^(.+)\((\d+),(\d+)\): (error|warning) (TS\d+): (.+)$
 def _find_tsconfig(file_path: str) -> Path | None:
     current = Path(file_path).resolve().parent
     while True:
-        candidate = current / "tsconfig.json"
+        candidate = current / TS_CONFIG_FILENAME
         if candidate.exists():
             return candidate
         if current.parent == current:

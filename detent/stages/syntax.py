@@ -26,11 +26,9 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import tree_sitter_javascript as tsjavascript
-import tree_sitter_python as tspython
-import tree_sitter_typescript as tstypescript
-from tree_sitter import Language, Parser
+from tree_sitter import Parser
 
+from detent.config.languages import TREE_SITTER_LANGUAGE_MAP
 from detent.pipeline.result import Finding, VerificationResult
 from detent.stages.base import VerificationStage
 
@@ -41,13 +39,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_LANGUAGE_MAP: dict[str, Language] = {
-    ".py": Language(tspython.language()),
-    ".js": Language(tsjavascript.language()),
-    ".jsx": Language(tsjavascript.language()),
-    ".ts": Language(tstypescript.language_typescript()),
-    ".tsx": Language(tstypescript.language_tsx()),
-}
+_LANGUAGE_MAP = TREE_SITTER_LANGUAGE_MAP
 _SUPPORTED_EXTENSIONS = frozenset(_LANGUAGE_MAP.keys())
 
 

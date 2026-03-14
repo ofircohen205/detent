@@ -24,26 +24,16 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from detent.config.languages import ESLINT_CONFIG_FILES
 from detent.pipeline.result import Finding
 
 logger = logging.getLogger(__name__)
-
-_ESLINT_CONFIGS = [
-    "eslint.config.js",
-    "eslint.config.mjs",
-    "eslint.config.cjs",
-    ".eslintrc.js",
-    ".eslintrc.cjs",
-    ".eslintrc.json",
-    ".eslintrc.yaml",
-    ".eslintrc.yml",
-]
 
 
 def _find_eslint_config(file_path: str) -> Path | None:
     current = Path(file_path).resolve().parent
     while True:
-        for candidate in _ESLINT_CONFIGS:
+        for candidate in ESLINT_CONFIG_FILES:
             config_path = current / candidate
             if config_path.exists():
                 return config_path

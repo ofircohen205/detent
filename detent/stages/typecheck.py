@@ -35,14 +35,15 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from detent.schema import AgentAction
 
+from detent.config.languages import PYTHON_EXTENSIONS, TS_EXTENSIONS
 from detent.pipeline.result import Finding, VerificationResult
 from detent.stages.base import VerificationStage, _validate_file_path
 from detent.stages.typecheck_js import run_tsc
 
 logger = logging.getLogger(__name__)
 
-_SUPPORTED_EXTENSIONS = frozenset({".py"})
-_TS_EXTENSIONS = frozenset({".ts", ".tsx"})
+_SUPPORTED_EXTENSIONS = PYTHON_EXTENSIONS
+_TS_EXTENSIONS = TS_EXTENSIONS
 _SEVERITY_MAP: dict[str, Literal["error", "warning", "info"]] = {
     "error": "error",
     "warning": "warning",

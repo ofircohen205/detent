@@ -31,14 +31,15 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from detent.schema import AgentAction
 
+from detent.config.languages import JS_TS_EXTENSIONS, PYTHON_EXTENSIONS
 from detent.pipeline.result import Finding, VerificationResult
 from detent.stages.base import VerificationStage, _validate_file_path
 from detent.stages.lint_js import run_eslint
 
 logger = logging.getLogger(__name__)
 
-_SUPPORTED_EXTENSIONS = frozenset({".py"})
-_JS_EXTENSIONS = frozenset({".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"})
+_SUPPORTED_EXTENSIONS = PYTHON_EXTENSIONS
+_JS_EXTENSIONS = JS_TS_EXTENSIONS
 
 
 class LintStage(VerificationStage):

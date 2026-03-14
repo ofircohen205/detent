@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from detent.schema import AgentAction
 
+from detent.config.languages import JS_TS_EXTENSIONS
 from detent.pipeline.result import Finding, VerificationResult
 from detent.stages.base import VerificationStage, _validate_file_path
 from detent.stages.tests_js import run_js_tests
@@ -41,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 _MAX_WALK_DEPTH = 5
 _PASSING_EXIT_CODES = frozenset({0, 5})  # 0=all passed, 5=no tests collected
-_JS_EXTENSIONS = frozenset({".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"})
+_JS_EXTENSIONS = JS_TS_EXTENSIONS
 
 
 class TestsStage(VerificationStage):
