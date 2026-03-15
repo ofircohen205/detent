@@ -44,35 +44,35 @@ _GRAMMAR_MAP: dict[str, Language] = {}
 try:
     import tree_sitter_python as _tspy
 
-    _GRAMMAR_MAP["python"] = Language(_tspy.language())
+    _GRAMMAR_MAP["python"] = Language(_tspy.language())  # type: ignore[call-arg, arg-type]
 except (ImportError, Exception):
     pass
 
 try:
     import tree_sitter_javascript as _tsjs
 
-    _GRAMMAR_MAP["javascript"] = Language(_tsjs.language())
+    _GRAMMAR_MAP["javascript"] = Language(_tsjs.language())  # type: ignore[call-arg, arg-type]
 except (ImportError, Exception):
     pass
 
 try:
     import tree_sitter_typescript as _tsts
 
-    _GRAMMAR_MAP["typescript"] = Language(_tsts.language_typescript())
+    _GRAMMAR_MAP["typescript"] = Language(_tsts.language_typescript())  # type: ignore[call-arg, arg-type]
 except (ImportError, Exception):
     pass
 
 try:
     import tree_sitter_go as _tsgo
 
-    _GRAMMAR_MAP["go"] = Language(_tsgo.language())
+    _GRAMMAR_MAP["go"] = Language(_tsgo.language())  # type: ignore[call-arg, arg-type]
 except (ImportError, Exception):
     pass
 
 try:
     import tree_sitter_rust as _tsrust
 
-    _GRAMMAR_MAP["rust"] = Language(_tsrust.language())
+    _GRAMMAR_MAP["rust"] = Language(_tsrust.language())  # type: ignore[call-arg, arg-type]
 except (ImportError, Exception):
     pass
 
@@ -104,7 +104,7 @@ class SyntaxStage(VerificationStage):
                 metadata={"skipped": True, "reason": f"Unsupported language: {lang}"},
             )
 
-        parser = Parser(grammar)
+        parser = Parser(grammar)  # type: ignore[call-arg]
         tree = parser.parse(content.encode("utf-8"))
 
         findings: list[Finding] = []
