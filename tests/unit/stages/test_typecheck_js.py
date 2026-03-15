@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from detent.stages.javascript import run_tsc
+from detent.stages.typecheck._tsc import run_tsc
 
 
 class FakeProc:

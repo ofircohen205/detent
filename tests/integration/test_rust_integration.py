@@ -22,8 +22,9 @@ from pathlib import Path
 
 import pytest
 
-from detent.stages.rust import run_check, run_clippy
+from detent.stages.lint._clippy import run_clippy
 from detent.stages.syntax import SyntaxStage
+from detent.stages.typecheck._cargo_check import run_check
 from tests.conftest import make_action
 
 pytestmark = pytest.mark.skipif(shutil.which("cargo") is None, reason="cargo not installed")

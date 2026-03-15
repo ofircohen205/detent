@@ -22,8 +22,9 @@ from pathlib import Path
 
 import pytest
 
-from detent.stages.go import run_build, run_vet
+from detent.stages.lint._go_vet import run_vet
 from detent.stages.syntax import SyntaxStage
+from detent.stages.typecheck._go_build import run_build
 from tests.conftest import make_action
 
 pytestmark = pytest.mark.skipif(shutil.which("go") is None, reason="go not installed")

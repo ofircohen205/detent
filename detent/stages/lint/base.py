@@ -23,8 +23,8 @@ from typing import TYPE_CHECKING
 
 from detent.config.languages import detect_language
 from detent.pipeline.result import VerificationResult
-from detent.stages import javascript, python
 from detent.stages.base import VerificationStage, _validate_file_path
+from detent.stages.lint import _eslint, _ruff
 
 if TYPE_CHECKING:
     from detent.schema import AgentAction
@@ -52,18 +52,18 @@ class LintStage(VerificationStage):
         timeout = self._config.timeout if self._config else 30
 
         if lang == "python":
-            findings = await python.run_ruff(file_path, content, self.name, timeout)
+            findings = await _ruff.run_ruff(file_path, content, self.name, timeout)
             tool = "ruff"
         elif lang in ("javascript", "typescript"):
-            findings = await javascript.run_eslint(file_path, content, self.name, timeout)
+            findings = await _eslint.run_eslint(file_path, content, self.name, timeout)
             tool = "eslint"
         elif lang == "go":
-            from detent.stages import go as _go
+            from detent.stages.lint import _go_vet as _go
 
             findings = await _go.run_vet(file_path, content, self.name, timeout)
             tool = "go vet"
         elif lang == "rust":
-            from detent.stages import rust as _rust
+            from detent.stages.lint import _clippy as _rust
 
             findings = await _rust.run_clippy(file_path, content, self.name, timeout)
             tool = "cargo clippy"

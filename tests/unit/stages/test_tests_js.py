@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from detent.stages.javascript import run_jest
+from detent.stages.tests._jest import run_jest
 
 
 class FakeProc:

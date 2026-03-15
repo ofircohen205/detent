@@ -21,7 +21,7 @@ import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from detent.stages.go import find_module_root
+from detent.stages.languages._go import find_module_root
 from detent.stages.lint import LintStage
 from detent.stages.typecheck import TypecheckStage
 from tests.conftest import make_action
@@ -60,7 +60,7 @@ async def test_run_vet_go_not_installed(tmp_path: Path) -> None:
     file_path = str(tmp_path / "main.go")
     Path(file_path).write_text("package main\nfunc main() {}\n")
     with patch("asyncio.create_subprocess_exec", side_effect=FileNotFoundError):
-        from detent.stages.go import run_vet
+        from detent.stages.lint._go_vet import run_vet
 
         findings = await run_vet(file_path, "package main\nfunc main() {}\n", "lint", 30)
     assert len(findings) == 1
@@ -70,7 +70,7 @@ async def test_run_vet_go_not_installed(tmp_path: Path) -> None:
 
 async def test_run_vet_no_go_mod(tmp_path: Path) -> None:
     file_path = str(tmp_path / "main.go")
-    from detent.stages.go import run_vet
+    from detent.stages.lint._go_vet import run_vet
 
     findings = await run_vet(file_path, "package main\n", "lint", 30)
     assert len(findings) == 1
@@ -85,7 +85,7 @@ async def test_run_vet_clean_returns_empty(tmp_path: Path) -> None:
     mock_proc.returncode = 0
     mock_proc.communicate = AsyncMock(return_value=(b"", b""))
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
-        from detent.stages.go import run_vet
+        from detent.stages.lint._go_vet import run_vet
 
         findings = await run_vet(file_path, "package main\n", "lint", 30)
     assert findings == []
@@ -99,7 +99,7 @@ async def test_run_vet_returns_warning_findings(tmp_path: Path) -> None:
     mock_proc.returncode = 1
     mock_proc.communicate = AsyncMock(return_value=(b"", stderr))
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
-        from detent.stages.go import run_vet
+        from detent.stages.lint._go_vet import run_vet
 
         findings = await run_vet(file_path, "package main\n", "lint", 30)
     assert len(findings) == 1
@@ -120,7 +120,7 @@ async def test_run_build_compile_error_returns_error_finding(tmp_path: Path) -> 
     mock_proc.returncode = 1
     mock_proc.communicate = AsyncMock(return_value=(b"", stderr))
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
-        from detent.stages.go import run_build
+        from detent.stages.typecheck._go_build import run_build
 
         findings = await run_build(file_path, "package main\n", "typecheck", 30)
     assert len(findings) == 1
@@ -134,7 +134,7 @@ async def test_run_build_compile_error_returns_error_finding(tmp_path: Path) -> 
 
 async def test_run_test_no_go_mod(tmp_path: Path) -> None:
     file_path = str(tmp_path / "main.go")
-    from detent.stages.go import run_test
+    from detent.stages.tests._go_test import run_test
 
     findings = await run_test(file_path, "tests", 30)
     assert len(findings) == 1
@@ -149,7 +149,7 @@ async def test_run_test_no_test_files_returns_empty(tmp_path: Path) -> None:
     mock_proc.returncode = 0
     mock_proc.communicate = AsyncMock(return_value=(stdout, b""))
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
-        from detent.stages.go import run_test
+        from detent.stages.tests._go_test import run_test
 
         findings = await run_test(file_path, "tests", 30)
     assert findings == []
@@ -167,7 +167,7 @@ async def test_run_test_failed_test_returns_error(tmp_path: Path) -> None:
     mock_proc.returncode = 1
     mock_proc.communicate = AsyncMock(return_value=(stdout, b""))
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
-        from detent.stages.go import run_test
+        from detent.stages.tests._go_test import run_test
 
         findings = await run_test(file_path, "tests", 30)
     assert len(findings) == 1

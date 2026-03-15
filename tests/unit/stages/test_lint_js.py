@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from detent.stages.javascript import run_eslint
+from detent.stages.lint._eslint import run_eslint
 
 
 class FakeProc:

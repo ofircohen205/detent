@@ -32,7 +32,7 @@ def test_find_crate_root_finds_cargo_toml(tmp_path):
     (tmp_path / "Cargo.toml").write_text('[package]\nname = "myapp"\nversion = "0.1.0"\n')
     src = tmp_path / "src"
     src.mkdir()
-    from detent.stages.rust import find_crate_root
+    from detent.stages.languages._rust import find_crate_root
 
     result = find_crate_root(str(src / "main.rs"))
     assert result is not None
@@ -42,7 +42,7 @@ def test_find_crate_root_finds_cargo_toml(tmp_path):
 
 def test_find_crate_root_returns_none_when_missing(tmp_path):
     (tmp_path / "src").mkdir()
-    from detent.stages.rust import find_crate_root
+    from detent.stages.languages._rust import find_crate_root
 
     assert find_crate_root(str(tmp_path / "src" / "main.rs")) is None
 
@@ -54,7 +54,7 @@ def test_find_crate_root_workspace_finds_member(tmp_path):
     (member / "Cargo.toml").write_text('[package]\nname = "mylib"\nversion = "0.1.0"\n')
     src = member / "src"
     src.mkdir()
-    from detent.stages.rust import find_crate_root
+    from detent.stages.languages._rust import find_crate_root
 
     result = find_crate_root(str(src / "lib.rs"))
     assert result is not None
@@ -67,7 +67,7 @@ async def test_run_clippy_cargo_not_installed(tmp_path):
     file_path = str(tmp_path / "src" / "main.rs")
     Path(tmp_path / "src").mkdir()
     with patch("asyncio.create_subprocess_exec", side_effect=FileNotFoundError):
-        from detent.stages.rust import run_clippy
+        from detent.stages.lint._clippy import run_clippy
 
         findings = await run_clippy(file_path, "fn main() {}", "lint", 30)
     assert len(findings) == 1
@@ -77,7 +77,7 @@ async def test_run_clippy_cargo_not_installed(tmp_path):
 
 async def test_run_clippy_no_cargo_toml(tmp_path):
     file_path = str(tmp_path / "main.rs")
-    from detent.stages.rust import run_clippy
+    from detent.stages.lint._clippy import run_clippy
 
     findings = await run_clippy(file_path, "fn main() {}", "lint", 30)
     assert len(findings) == 1
@@ -92,7 +92,7 @@ async def test_run_clippy_clean_returns_empty(tmp_path):
     mock_proc.returncode = 0
     mock_proc.communicate = AsyncMock(return_value=(b"", b""))
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
-        from detent.stages.rust import run_clippy
+        from detent.stages.lint._clippy import run_clippy
 
         findings = await run_clippy(file_path, "fn main() {}", "lint", 30)
     assert findings == []
@@ -116,7 +116,7 @@ async def test_run_clippy_returns_warning_findings(tmp_path):
     mock_proc.returncode = 1
     mock_proc.communicate = AsyncMock(return_value=(stdout, b""))
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
-        from detent.stages.rust import run_clippy
+        from detent.stages.lint._clippy import run_clippy
 
         findings = await run_clippy(file_path, "fn main() {}", "lint", 30)
     assert len(findings) == 1
@@ -144,7 +144,7 @@ async def test_run_check_error_finding(tmp_path):
     mock_proc.returncode = 1
     mock_proc.communicate = AsyncMock(return_value=(stdout, b""))
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
-        from detent.stages.rust import run_check
+        from detent.stages.typecheck._cargo_check import run_check
 
         findings = await run_check(file_path, "fn main() {}", "typecheck", 30)
     assert len(findings) == 1
@@ -154,7 +154,7 @@ async def test_run_check_error_finding(tmp_path):
 # run_test tests
 async def test_run_test_no_cargo_toml(tmp_path):
     file_path = str(tmp_path / "main.rs")
-    from detent.stages.rust import run_test
+    from detent.stages.tests._cargo_test import run_test
 
     findings = await run_test(file_path, "tests", 30)
     assert len(findings) == 1
@@ -170,7 +170,7 @@ async def test_run_test_all_pass_returns_empty(tmp_path):
     mock_proc.returncode = 0
     mock_proc.communicate = AsyncMock(return_value=(stdout, b""))
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
-        from detent.stages.rust import run_test
+        from detent.stages.tests._cargo_test import run_test
 
         findings = await run_test(file_path, "tests", 30)
     assert findings == []
@@ -185,7 +185,7 @@ async def test_run_test_failed_test_returns_error(tmp_path):
     mock_proc.returncode = 101
     mock_proc.communicate = AsyncMock(return_value=(stdout, b""))
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
-        from detent.stages.rust import run_test
+        from detent.stages.tests._cargo_test import run_test
 
         findings = await run_test(file_path, "tests", 30)
     # returncode=101 is treated as compile error warning, not test failures

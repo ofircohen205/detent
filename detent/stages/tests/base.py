@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""TypecheckStage — dispatches to language-specific typecheck helpers."""
+"""TestsStage — dispatches to language-specific test runners."""
 
 from __future__ import annotations
 
@@ -23,8 +23,8 @@ from typing import TYPE_CHECKING
 
 from detent.config.languages import detect_language
 from detent.pipeline.result import VerificationResult
-from detent.stages import javascript, python
 from detent.stages.base import VerificationStage, _validate_file_path
+from detent.stages.tests import _jest, _pytest
 
 if TYPE_CHECKING:
     from detent.schema import AgentAction
@@ -32,41 +32,62 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class TypecheckStage(VerificationStage):
-    """Type-checks proposed file content. Python->mypy, JS/TS->tsc, Go->go build, Rust->cargo check."""
+class TestsStage(VerificationStage):
+    """Runs tests related to the modified file. Python->pytest, JS/TS->jest/vitest, Go->go test, Rust->cargo test."""
 
-    name = "typecheck"
+    name = "tests"
 
     def supports_language(self, lang: str) -> bool:
         return lang in {"python", "javascript", "typescript", "go", "rust"}
 
     async def _run(self, action: AgentAction) -> VerificationResult:
-        """Type-check content by dispatching to the appropriate language helper."""
+        """Find and run related tests by dispatching to the appropriate language helper."""
         start = time.perf_counter()
         file_path = action.file_path or ""
-        content = action.content or ""
+
         if file_path:
             _validate_file_path(file_path)
+
+        if not file_path:
+            duration_ms = (time.perf_counter() - start) * 1000
+            return VerificationResult(
+                stage=self.name,
+                passed=True,
+                findings=[],
+                duration_ms=duration_ms,
+                metadata={"skipped": True, "reason": "No file_path in action"},
+            )
 
         lang = detect_language(file_path)
         timeout = self._config.timeout if self._config else 30
 
         if lang == "python":
-            findings = await python.run_mypy(file_path, content, self.name, timeout)
-            tool = "mypy"
+            findings = await _pytest.run_pytest(file_path, self.name, timeout)
+            tool = "pytest"
+            if not findings:
+                # No test files found or all passed — check if it was a skip
+                duration_ms = (time.perf_counter() - start) * 1000
+                return VerificationResult(
+                    stage=self.name,
+                    passed=True,
+                    findings=[],
+                    duration_ms=duration_ms,
+                    metadata={"tool": tool, "language": lang},
+                )
         elif lang in ("javascript", "typescript"):
-            findings = await javascript.run_tsc(file_path, content, self.name, timeout)
-            tool = "tsc"
+            tool_override = self._config.tools[0] if self._config and self._config.tools else None
+            findings = await _jest.run_jest(file_path, self.name, timeout, tool_override)
+            tool = tool_override or "auto"
         elif lang == "go":
-            from detent.stages import go as _go
+            from detent.stages.tests import _go_test as _go
 
-            findings = await _go.run_build(file_path, content, self.name, timeout)
-            tool = "go build"
+            findings = await _go.run_test(file_path, self.name, timeout)
+            tool = "go test"
         elif lang == "rust":
-            from detent.stages import rust as _rust
+            from detent.stages.tests import _cargo_test as _rust
 
-            findings = await _rust.run_check(file_path, content, self.name, timeout)
-            tool = "cargo check"
+            findings = await _rust.run_test(file_path, self.name, timeout)
+            tool = "cargo test"
         else:
             findings = []
             tool = "none"
@@ -74,7 +95,7 @@ class TypecheckStage(VerificationStage):
         duration_ms = (time.perf_counter() - start) * 1000
         return VerificationResult(
             stage=self.name,
-            passed=not any(f.severity == "error" for f in findings),
+            passed=len(findings) == 0,
             findings=findings,
             duration_ms=duration_ms,
             metadata={"tool": tool, "language": lang},
