@@ -21,9 +21,10 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
+from detent.config.languages import detect_language
 from detent.pipeline.result import VerificationResult
 from detent.stages import javascript, python
-from detent.stages.base import VerificationStage, _detect_language, _validate_file_path
+from detent.stages.base import VerificationStage, _validate_file_path
 
 if TYPE_CHECKING:
     from detent.schema import AgentAction
@@ -47,7 +48,7 @@ class LintStage(VerificationStage):
         if file_path:
             _validate_file_path(file_path)
 
-        lang = _detect_language(file_path)
+        lang = detect_language(file_path)
         timeout = self._config.timeout if self._config else 30
 
         if lang == "python":

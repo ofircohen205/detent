@@ -20,26 +20,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-
-@dataclass
-class FileSnapshot:
-    """Point-in-time snapshot of a single file's content and metadata.
-
-    content=None means the file did not exist at savepoint time.
-    existed=False means rollback should delete the file if it now exists.
-    """
-
-    path: str
-    content: bytes | None  # None = file did not exist at savepoint time
-    existed: bool
-    permissions: int | None
-
+from detent.checkpoint.schemas import FileSnapshot
 
 logger = logging.getLogger(__name__)
 

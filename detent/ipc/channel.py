@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from detent.proxy.types import IPCMessage
+    from detent.ipc.schemas import IPCMessage
 
 logger = logging.getLogger(__name__)
 

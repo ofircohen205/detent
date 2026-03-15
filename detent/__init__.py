@@ -24,15 +24,15 @@ from __future__ import annotations
 __version__ = "0.1.0"
 
 from detent.adapters.base import AgentAdapter
-from detent.adapters.claude_code import ClaudeCodeAdapter
-from detent.adapters.codex import CodexAdapter
-from detent.adapters.cursor import CursorAdapter
-from detent.adapters.gemini import GeminiAdapter
-from detent.adapters.hook import HookAdapter
-from detent.adapters.http_proxy import HTTPProxyAdapter
+from detent.adapters.hook.base import HookAdapter
+from detent.adapters.hook.gemini import GeminiAdapter
+from detent.adapters.hook.litellm import LiteLLMAdapter
+from detent.adapters.hook.openapi import OpenAPIAdapter
+from detent.adapters.http.base import HTTPProxyAdapter
+from detent.adapters.http.claude_code import ClaudeCodeAdapter
+from detent.adapters.http.codex import CodexAdapter
+from detent.adapters.http.cursor import CursorAdapter
 from detent.adapters.langgraph import LangGraphAdapter
-from detent.adapters.litellm import LiteLLMAdapter
-from detent.adapters.openapi import OpenAPIAdapter
 from detent.checkpoint.engine import CheckpointEngine
 from detent.circuit_breaker import CircuitBreaker
 from detent.config import DetentConfig, PipelineConfig, ProxyConfig, StageConfig, TelemetryConfig
@@ -42,10 +42,11 @@ from detent.feedback.synthesizer import (
     StructuredFeedback,
 )
 from detent.ipc import IPCControlChannel
+from detent.ipc.schemas import IPCMessage, IPCMessageType
 from detent.pipeline.pipeline import VerificationPipeline
 from detent.pipeline.result import Finding, VerificationResult
 from detent.proxy import DetentProxy, SessionManager
-from detent.proxy.types import DetentSessionConflictError, IPCMessageType
+from detent.proxy.types import DetentSessionConflictError
 from detent.schema import ActionType, AgentAction, RiskLevel
 from detent.stages.base import VerificationStage
 from detent.stages.lint import LintStage
@@ -101,5 +102,6 @@ __all__ = [
     "HookAdapter",
     # Types
     "DetentSessionConflictError",
+    "IPCMessage",
     "IPCMessageType",
 ]

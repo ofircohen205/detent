@@ -20,29 +20,13 @@ from __future__ import annotations
 import logging
 import time
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 from detent.circuit_breaker import CircuitBreaker, CircuitOpenError
+from detent.config.languages import detect_language
 from detent.observability.metrics import record_stage_duration, record_stage_findings
 from detent.observability.tracer import get_tracer
 from detent.pipeline.result import Finding, VerificationResult
-
-_EXTENSION_TO_LANGUAGE: dict[str, str] = {
-    ".py": "python",
-    ".ts": "typescript",
-    ".tsx": "typescript",
-    ".js": "javascript",
-    ".jsx": "javascript",
-    ".go": "go",
-    ".rs": "rust",
-}
-
-
-def _detect_language(file_path: str | None) -> str:
-    suffix = Path(file_path or "").suffix.lower()
-    return _EXTENSION_TO_LANGUAGE.get(suffix, "unknown")
-
 
 if TYPE_CHECKING:
     from detent.config import StageConfig
@@ -99,7 +83,7 @@ class VerificationStage(ABC):
         start = time.perf_counter()
         logger.debug("[%s] starting on %s", self.name, action.file_path)
         tracer = get_tracer(__name__)
-        language = _detect_language(action.file_path)
+        language = detect_language(action.file_path)
         circuit_state = self._circuit_breaker.state if self._circuit_breaker else "disabled"
         with tracer.start_as_current_span(
             f"detent.stage.{self.name}",

@@ -17,19 +17,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+
+from detent.observability.schemas import ExporterBundle
 
 if TYPE_CHECKING:
     from detent.config import TelemetryConfig
-
-
-@dataclass
-class ExporterBundle:
-    """Bundle containing both span and metric exporters."""
-
-    span_exporter: Any
-    metric_exporter: Any
 
 
 def build_exporter(config: TelemetryConfig) -> ExporterBundle:

@@ -27,8 +27,9 @@ from typing import TYPE_CHECKING
 
 from tree_sitter import Language, Parser
 
+from detent.config.languages import detect_language
 from detent.pipeline.result import Finding, VerificationResult
-from detent.stages.base import VerificationStage, _detect_language
+from detent.stages.base import VerificationStage
 
 if TYPE_CHECKING:
     from tree_sitter import Node
@@ -91,7 +92,7 @@ class SyntaxStage(VerificationStage):
         file_path = action.file_path or ""
         content = action.content or ""
 
-        lang = _detect_language(file_path)
+        lang = detect_language(file_path)
         grammar = _GRAMMAR_MAP.get(lang)
         if grammar is None:
             duration_ms = (time.perf_counter() - start) * 1000

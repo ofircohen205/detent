@@ -17,14 +17,13 @@
 
 from __future__ import annotations
 
-from typing import Final
+from functools import lru_cache
+from pathlib import Path
 
-PYTHON_EXTENSIONS: Final[frozenset[str]] = frozenset({".py"})
-JS_TS_EXTENSIONS: Final[frozenset[str]] = frozenset({".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"})
-GO_EXTENSIONS: Final[frozenset[str]] = frozenset({".go"})
-RUST_EXTENSIONS: Final[frozenset[str]] = frozenset({".rs"})
+from pydantic_settings import BaseSettings
 
-ESLINT_CONFIG_FILES: Final[tuple[str, ...]] = (
+# Configuration files for each language
+ESLINT_CONFIG_FILES: tuple[str, ...] = (
     "eslint.config.js",
     "eslint.config.mjs",
     "eslint.config.cjs",
@@ -34,10 +33,51 @@ ESLINT_CONFIG_FILES: Final[tuple[str, ...]] = (
     ".eslintrc.yaml",
     ".eslintrc.yml",
 )
+TS_CONFIG_FILENAME: str = "tsconfig.json"
 
-TS_CONFIG_FILENAME: Final[str] = "tsconfig.json"
-TS_EXTENSIONS: Final[frozenset[str]] = frozenset({".ts", ".tsx"})
 
-# TREE_SITTER_LANGUAGE_MAP moved to syntax.py (Task 3)
-# Keeping this stub import path for backward compatibility during refactoring
-TREE_SITTER_LANGUAGE_MAP: Final[dict[str, object]] = {}  # noqa: F841
+class LanguageSettings(BaseSettings):
+    """Language-specific constants shared across lint/typecheck/test stages."""
+
+    # File extensions for each language
+    python_extensions: frozenset[str] = frozenset({".py"})
+    js_extensions: frozenset[str] = frozenset({".js", ".jsx", ".mjs", ".cjs"})
+    ts_extensions: frozenset[str] = frozenset({".ts", ".tsx"})
+    go_extensions: frozenset[str] = frozenset({".go"})
+    rust_extensions: frozenset[str] = frozenset({".rs"})
+
+    # Configuration files for each language
+    eslint_config_files: tuple[str, ...] = ESLINT_CONFIG_FILES
+    ts_config_filename: str = TS_CONFIG_FILENAME
+
+    @property
+    def extension_map(self) -> dict[str, str]:
+        """Mapping of file extensions to language names."""
+        mapping = {}
+        for ext in self.python_extensions:
+            mapping[ext] = "python"
+        for ext in self.js_extensions:
+            mapping[ext] = "javascript"
+        for ext in self.ts_extensions:
+            mapping[ext] = "typescript"
+        for ext in self.go_extensions:
+            mapping[ext] = "go"
+        for ext in self.rust_extensions:
+            mapping[ext] = "rust"
+        return mapping
+
+
+@lru_cache
+def get_language_settings() -> LanguageSettings:
+    return LanguageSettings()
+
+
+language_settings = get_language_settings()
+
+
+def detect_language(file_path: str | Path | None) -> str:
+    """Detect language from file extension. Returns 'unknown' for unrecognized types."""
+    if not file_path:
+        return "unknown"
+    suffix = Path(file_path).suffix.lower()
+    return language_settings.extension_map.get(suffix, "unknown")

@@ -15,14 +15,10 @@
 
 """HTTP proxy for conversation-layer interception."""
 
+from detent.ipc.schemas import IPCMessage, IPCMessageType
 from detent.proxy.http_proxy import DetentProxy
 from detent.proxy.session import SessionManager
-from detent.proxy.types import (
-    DetentSessionConflictError,
-    IPCMessage,
-    IPCMessageType,
-    SessionState,
-)
+from detent.proxy.types import DetentSessionConflictError, SessionState
 
 __all__ = [
     "DetentProxy",

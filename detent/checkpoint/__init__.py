@@ -16,6 +16,7 @@
 """Checkpoint engine — SAVEPOINT semantics for file operations."""
 
 from detent.checkpoint.engine import CheckpointEngine
-from detent.checkpoint.savepoint import FileSnapshot, ShadowGit
+from detent.checkpoint.savepoint import ShadowGit
+from detent.checkpoint.schemas import FileSnapshot
 
 __all__ = ["CheckpointEngine", "FileSnapshot", "ShadowGit"]
