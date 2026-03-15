@@ -20,7 +20,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from detent.adapters.http_proxy import HTTPProxyAdapter
+from detent.adapters.http.base import HTTPProxyAdapter
+from detent.config import UPSTREAM_HOST_ANTHROPIC
 from detent.schema import ActionType, AgentAction, RiskLevel
 
 if TYPE_CHECKING:
@@ -40,7 +41,7 @@ class ClaudeCodeAdapter(HTTPProxyAdapter):
     @property
     def upstream_host(self) -> str:
         """Expected upstream host for Claude Code."""
-        return "api.anthropic.com"
+        return UPSTREAM_HOST_ANTHROPIC
 
     async def intercept(self, raw_event: dict[str, Any]) -> AgentAction | None:
         """Normalize Claude Code tool call to AgentAction.

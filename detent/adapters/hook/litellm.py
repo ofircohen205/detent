@@ -24,8 +24,8 @@ from typing import TYPE_CHECKING, Any
 
 from aiohttp import web
 
-from detent.adapters.hook import HookAdapter
-from detent.proxy.types import IPCMessage, IPCMessageType
+from detent.adapters.hook.base import HookAdapter
+from detent.ipc.schemas import IPCMessage, IPCMessageType
 from detent.schema import ActionType, AgentAction, RiskLevel
 
 logger = logging.getLogger(__name__)

@@ -13,26 +13,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Cursor adapter for OpenAI-compatible HTTP proxy interception."""
+"""Codex adapter for OpenAI-compatible HTTP proxy interception."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from detent.adapters.http_proxy import HTTPProxyAdapter
+from detent.adapters.http.base import HTTPProxyAdapter
+from detent.config import UPSTREAM_HOST_OPENAI
 from detent.schema import ActionType, AgentAction
 
 
-class CursorAdapter(HTTPProxyAdapter):
-    """Adapter for Cursor tool call interception via HTTP proxy."""
+class CodexAdapter(HTTPProxyAdapter):
+    """Adapter for Codex tool call interception via HTTP proxy."""
 
     @property
     def agent_name(self) -> str:
-        return "cursor"
+        return "codex"
 
     @property
     def upstream_host(self) -> str:
-        return "api.openai.com"
+        return UPSTREAM_HOST_OPENAI
 
     async def intercept(self, raw_event: dict[str, Any]) -> AgentAction | None:
         tool_calls = raw_event.get("choices", [{}])[0].get("message", {}).get("tool_calls", [])
