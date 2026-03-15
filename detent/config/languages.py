@@ -40,4 +40,4 @@ TS_EXTENSIONS: Final[frozenset[str]] = frozenset({".ts", ".tsx"})
 
 # TREE_SITTER_LANGUAGE_MAP moved to syntax.py (Task 3)
 # Keeping this stub import path for backward compatibility during refactoring
-TREE_SITTER_LANGUAGE_MAP: Final[dict] = {}  # noqa: F841
+TREE_SITTER_LANGUAGE_MAP: Final[dict[str, object]] = {}  # noqa: F841
