@@ -24,6 +24,8 @@ from typing import TYPE_CHECKING
 from detent.config.languages import detect_language
 from detent.pipeline.result import VerificationResult
 from detent.stages.base import VerificationStage, _validate_file_path
+from detent.stages.tests import _cargo_test as _rust
+from detent.stages.tests import _go_test as _go
 from detent.stages.tests import _jest, _pytest
 
 if TYPE_CHECKING:
@@ -79,13 +81,9 @@ class TestsStage(VerificationStage):
             findings = await _jest.run_jest(file_path, self.name, timeout, tool_override)
             tool = tool_override or "auto"
         elif lang == "go":
-            from detent.stages.tests import _go_test as _go
-
             findings = await _go.run_test(file_path, self.name, timeout)
             tool = "go test"
         elif lang == "rust":
-            from detent.stages.tests import _cargo_test as _rust
-
             findings = await _rust.run_test(file_path, self.name, timeout)
             tool = "cargo test"
         else:

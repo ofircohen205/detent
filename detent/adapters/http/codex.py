@@ -17,14 +17,11 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from detent.adapters.http.base import HTTPProxyAdapter
+from detent.adapters.http.base import OpenAICompatibleAdapter
 from detent.config import UPSTREAM_HOST_OPENAI
-from detent.schema import ActionType, AgentAction
 
 
-class CodexAdapter(HTTPProxyAdapter):
+class CodexAdapter(OpenAICompatibleAdapter):
     """Adapter for Codex tool call interception via HTTP proxy."""
 
     @property
@@ -34,11 +31,3 @@ class CodexAdapter(HTTPProxyAdapter):
     @property
     def upstream_host(self) -> str:
         return UPSTREAM_HOST_OPENAI
-
-    async def intercept(self, raw_event: dict[str, Any]) -> AgentAction | None:
-        tool_calls = raw_event.get("choices", [{}])[0].get("message", {}).get("tool_calls", [])
-        for tool_call in tool_calls:
-            action = self.normalize_tool_call(tool_call)
-            if action and action.action_type == ActionType.FILE_WRITE:
-                return action
-        return None

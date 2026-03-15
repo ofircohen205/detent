@@ -24,6 +24,8 @@ from typing import TYPE_CHECKING
 from detent.config.languages import detect_language
 from detent.pipeline.result import VerificationResult
 from detent.stages.base import VerificationStage, _validate_file_path
+from detent.stages.typecheck import _cargo_check as _rust
+from detent.stages.typecheck import _go_build as _go
 from detent.stages.typecheck import _mypy, _tsc
 
 if TYPE_CHECKING:
@@ -58,13 +60,9 @@ class TypecheckStage(VerificationStage):
             findings = await _tsc.run_tsc(file_path, content, self.name, timeout)
             tool = "tsc"
         elif lang == "go":
-            from detent.stages.typecheck import _go_build as _go
-
             findings = await _go.run_build(file_path, content, self.name, timeout)
             tool = "go build"
         elif lang == "rust":
-            from detent.stages.typecheck import _cargo_check as _rust
-
             findings = await _rust.run_check(file_path, content, self.name, timeout)
             tool = "cargo check"
         else:

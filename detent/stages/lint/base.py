@@ -24,7 +24,9 @@ from typing import TYPE_CHECKING
 from detent.config.languages import detect_language
 from detent.pipeline.result import VerificationResult
 from detent.stages.base import VerificationStage, _validate_file_path
+from detent.stages.lint import _clippy as _rust
 from detent.stages.lint import _eslint, _ruff
+from detent.stages.lint import _go_vet as _go
 
 if TYPE_CHECKING:
     from detent.schema import AgentAction
@@ -58,13 +60,9 @@ class LintStage(VerificationStage):
             findings = await _eslint.run_eslint(file_path, content, self.name, timeout)
             tool = "eslint"
         elif lang == "go":
-            from detent.stages.lint import _go_vet as _go
-
             findings = await _go.run_vet(file_path, content, self.name, timeout)
             tool = "go vet"
         elif lang == "rust":
-            from detent.stages.lint import _clippy as _rust
-
             findings = await _rust.run_clippy(file_path, content, self.name, timeout)
             tool = "cargo clippy"
         else:

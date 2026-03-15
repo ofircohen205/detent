@@ -88,3 +88,15 @@ class HTTPProxyAdapter(AgentAdapter):
             checkpoint_ref="",
             risk_level=RiskLevel.MEDIUM,
         )
+
+
+class OpenAICompatibleAdapter(HTTPProxyAdapter):
+    """Shared intercept logic for OpenAI-compatible agents (Codex, Cursor, etc.)."""
+
+    async def intercept(self, raw_event: dict[str, Any]) -> AgentAction | None:
+        tool_calls = raw_event.get("choices", [{}])[0].get("message", {}).get("tool_calls", [])
+        for tool_call in tool_calls:
+            action = self.normalize_tool_call(tool_call)
+            if action and action.action_type == ActionType.FILE_WRITE:
+                return action
+        return None

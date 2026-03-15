@@ -74,10 +74,13 @@ def get_language_settings() -> LanguageSettings:
 
 language_settings = get_language_settings()
 
+# Pre-compute once from the singleton — avoids rebuilding the dict on every detect_language() call.
+_EXTENSION_MAP: dict[str, str] = language_settings.extension_map
+
 
 def detect_language(file_path: str | Path | None) -> str:
     """Detect language from file extension. Returns 'unknown' for unrecognized types."""
     if not file_path:
         return "unknown"
     suffix = Path(file_path).suffix.lower()
-    return language_settings.extension_map.get(suffix, "unknown")
+    return _EXTENSION_MAP.get(suffix, "unknown")

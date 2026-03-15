@@ -18,25 +18,17 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 import re
 from pathlib import Path
 
 from detent.config.languages import TS_CONFIG_FILENAME
 from detent.pipeline.result import Finding
+from detent.stages._subprocess import cleanup_process as _cleanup
 
 logger = logging.getLogger(__name__)
 
 _TSC_PATTERN = re.compile(r"^(.+)\((\d+),(\d+)\): (error|warning) (TS\d+): (.+)$")
-
-
-async def _cleanup(proc: asyncio.subprocess.Process) -> None:
-    """Kill a subprocess if still running and await it."""
-    if proc.returncode is None:
-        with contextlib.suppress(ProcessLookupError):
-            proc.kill()
-        await proc.communicate()
 
 
 def _find_tsconfig(file_path: str) -> Path | None:

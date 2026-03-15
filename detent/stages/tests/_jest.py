@@ -18,22 +18,14 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import json
 import logging
 from pathlib import Path
 
 from detent.pipeline.result import Finding
+from detent.stages._subprocess import cleanup_process as _cleanup
 
 logger = logging.getLogger(__name__)
-
-
-async def _cleanup(proc: asyncio.subprocess.Process) -> None:
-    """Kill a subprocess if still running and await it."""
-    if proc.returncode is None:
-        with contextlib.suppress(ProcessLookupError):
-            proc.kill()
-        await proc.communicate()
 
 
 def _detect_js_runner(file_path: str) -> str | None:

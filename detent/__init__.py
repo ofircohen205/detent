@@ -42,7 +42,7 @@ from detent.feedback.synthesizer import (
     StructuredFeedback,
 )
 from detent.ipc import IPCControlChannel
-from detent.ipc.schemas import IPCMessage, IPCMessageType
+from detent.ipc.schemas import IPCMessageType
 from detent.pipeline.pipeline import VerificationPipeline
 from detent.pipeline.result import Finding, VerificationResult
 from detent.proxy import DetentProxy, SessionManager
@@ -102,6 +102,5 @@ __all__ = [
     "HookAdapter",
     # Types
     "DetentSessionConflictError",
-    "IPCMessage",
     "IPCMessageType",
 ]

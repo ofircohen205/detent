@@ -13,25 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Type definitions and exceptions for proxy and IPC."""
+"""Shared subprocess utilities used by stage helpers."""
 
-from pydantic import BaseModel, Field
+from __future__ import annotations
 
-from detent.ipc.schemas import IPCMessage, IPCMessageType
+import contextlib
+from typing import TYPE_CHECKING
 
-__all__ = ["DetentSessionConflictError", "IPCMessage", "IPCMessageType", "SessionState"]
-
-
-class DetentSessionConflictError(Exception):
-    """Raised when attempting to start a session while one is already active."""
-
-    pass
+if TYPE_CHECKING:
+    import asyncio
 
 
-class SessionState(BaseModel):
-    """Session metadata."""
-
-    session_id: str
-    started_at: str  # ISO 8601
-    checkpoint_refs: list[str] = Field(default_factory=list)
-    active_tool_call_id: str | None = None
+async def cleanup_process(proc: asyncio.subprocess.Process) -> None:
+    """Kill a subprocess if still running and await it."""
+    if proc.returncode is None:
+        with contextlib.suppress(ProcessLookupError):
+            proc.kill()
+        await proc.communicate()
