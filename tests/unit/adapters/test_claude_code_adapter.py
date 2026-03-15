@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from detent.adapters.claude_code import ClaudeCodeAdapter
+from detent.adapters.http.claude_code import ClaudeCodeAdapter
 from detent.pipeline.result import Finding, VerificationResult
 from detent.schema import AgentAction
 

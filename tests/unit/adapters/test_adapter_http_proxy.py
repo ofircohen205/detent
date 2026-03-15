@@ -5,9 +5,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from detent.adapters.claude_code import ClaudeCodeAdapter
-from detent.adapters.codex import CodexAdapter
-from detent.adapters.cursor import CursorAdapter
+from detent.adapters.http.claude_code import ClaudeCodeAdapter
+from detent.adapters.http.codex import CodexAdapter
+from detent.adapters.http.cursor import CursorAdapter
 from detent.schema import ActionType
 
 

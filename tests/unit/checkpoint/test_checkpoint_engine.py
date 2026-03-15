@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 
 from detent.checkpoint.engine import CheckpointEngine
-from detent.checkpoint.savepoint import FileSnapshot, ShadowGit
+from detent.checkpoint.savepoint import ShadowGit
+from detent.checkpoint.schemas import FileSnapshot
 
 
 def test_file_snapshot_fields() -> None:

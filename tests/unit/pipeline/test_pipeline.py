@@ -7,7 +7,8 @@ import logging
 import pytest
 
 from detent.config import DetentConfig, PipelineConfig, StageConfig
-from detent.pipeline.pipeline import VerificationPipeline, _detect_language
+from detent.config.languages import detect_language
+from detent.pipeline.pipeline import VerificationPipeline
 from detent.pipeline.result import Finding, VerificationResult
 from detent.schema import AgentAction
 from detent.stages.base import VerificationStage
@@ -74,31 +75,31 @@ def make_pipeline_config(*, parallel: bool = False, fail_fast: bool = True) -> P
     return PipelineConfig(parallel=parallel, fail_fast=fail_fast)
 
 
-# ─── _detect_language ─────────────────────────────────────────────────────────
+# ─── detect_language ──────────────────────────────────────────────────────────
 
 
 def test_detect_language_python():
-    assert _detect_language("/src/main.py") == "python"
+    assert detect_language("/src/main.py") == "python"
 
 
 def test_detect_language_typescript():
-    assert _detect_language("/src/app.ts") == "typescript"
+    assert detect_language("/src/app.ts") == "typescript"
 
 
 def test_detect_language_tsx():
-    assert _detect_language("/src/app.tsx") == "typescript"
+    assert detect_language("/src/app.tsx") == "typescript"
 
 
 def test_detect_language_javascript():
-    assert _detect_language("/src/app.js") == "javascript"
+    assert detect_language("/src/app.js") == "javascript"
 
 
 def test_detect_language_unknown_extension():
-    assert _detect_language("/src/main.xyz") == "unknown"
+    assert detect_language("/src/main.xyz") == "unknown"
 
 
 def test_detect_language_no_extension():
-    assert _detect_language("/src/Makefile") == "unknown"
+    assert detect_language("/src/Makefile") == "unknown"
 
 
 # ─── Empty pipeline ───────────────────────────────────────────────────────────

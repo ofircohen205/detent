@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import aiohttp
 import pytest
 
-from detent.adapters.openapi import OpenAPIAdapter
+from detent.adapters.hook.openapi import OpenAPIAdapter
 from detent.proxy.http_proxy import DetentProxy
 
 

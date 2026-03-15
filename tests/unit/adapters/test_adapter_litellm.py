@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from detent.adapters.litellm import LiteLLMAdapter
+from detent.adapters.hook.litellm import LiteLLMAdapter
 
 
 @pytest.mark.asyncio

@@ -5,8 +5,8 @@ from unittest.mock import MagicMock
 import pytest
 from aiohttp import web
 
-from detent.adapters.gemini import GeminiAdapter
 from detent.adapters.hook import HookAdapter
+from detent.adapters.hook.gemini import GeminiAdapter
 from detent.schema import ActionType
 
 
