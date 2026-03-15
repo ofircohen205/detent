@@ -1,4 +1,4 @@
-"""Unit tests for detent.stages.tests_js."""
+"""Unit tests for detent.stages.javascript — Jest/Vitest (tests) helper."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from detent.stages.tests_js import run_js_tests
+from detent.stages.javascript import run_jest
 
 
 class FakeProc:
@@ -37,7 +37,7 @@ def patch_wait_for(monkeypatch: pytest.MonkeyPatch) -> None:
 async def test_no_runner_warns(tmp_path: Path) -> None:
     src = tmp_path / "file.ts"
     src.write_text("console.log('x');\n")
-    result = await run_js_tests(str(src), timeout=1, tool_override=None)
+    result = await run_jest(str(src), stage_name="tests", timeout=1, tool_override=None)
     assert result[0].code == "testsjs/no-runner"
 
 
@@ -47,7 +47,7 @@ async def test_no_test_file_returns_empty(tmp_path: Path) -> None:
     src.write_text("console.log('x');\n")
     package = tmp_path / "package.json"
     package.write_text(json.dumps({"devDependencies": {"jest": "^29.0.0"}}))
-    result = await run_js_tests(str(src), timeout=1, tool_override=None)
+    result = await run_jest(str(src), stage_name="tests", timeout=1, tool_override=None)
     assert result == []
 
 
@@ -82,7 +82,7 @@ async def test_jest_failure_parsed(tmp_path: Path, monkeypatch: pytest.MonkeyPat
         return FakeProc(returncode=1, stdout=payload)
 
     monkeypatch.setattr("asyncio.create_subprocess_exec", _fake_exec)
-    result = await run_js_tests(str(src), timeout=1, tool_override=None)
+    result = await run_jest(str(src), stage_name="tests", timeout=1, tool_override=None)
     assert len(result) == 1
     assert result[0].code == "jest/assertion-failed"
     assert result[0].line == 10

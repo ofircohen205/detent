@@ -46,11 +46,12 @@ async def test_finding_uses_original_file_path(stage: TypecheckStage) -> None:
     assert "/tmp" not in result.findings[0].file
 
 
-async def test_unsupported_extension_skips(stage: TypecheckStage) -> None:
-    action = make_action(file_path="/src/main.go", content="package main\nfunc main() {}")
+async def test_unsupported_extension_passes_clean(stage: TypecheckStage) -> None:
+    action = make_action(file_path="/src/main.rb", content="puts 'hello'")
     result = await stage.run(action)
     assert result.passed
-    assert result.metadata.get("skipped") is True
+    assert result.metadata.get("tool") == "none"
+    assert result.metadata.get("language") == "unknown"
 
 
 async def test_stage_name_is_typecheck(stage: TypecheckStage) -> None:

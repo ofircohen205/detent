@@ -16,14 +16,14 @@ def stage() -> TestsStage:
 
 
 async def test_no_test_file_skips(stage: TestsStage, tmp_path: Path) -> None:
-    """If no test file can be found, the stage skips and returns passed."""
+    """If no test file can be found for a Python file, the stage passes with no findings."""
     src = tmp_path / "src"
     src.mkdir()
     (src / "main.py").write_text("def hello(): return 1\n")
     action = make_action(file_path=str(src / "main.py"), content="def hello(): return 1\n")
     result = await stage.run(action)
     assert result.passed
-    assert result.metadata.get("skipped") is True
+    assert result.findings == []
 
 
 async def test_passing_tests_pass(stage: TestsStage, tmp_path: Path) -> None:

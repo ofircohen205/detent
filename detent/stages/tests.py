@@ -13,57 +13,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""TestsStage — runs pytest on test files related to the modified source file.
-
-Discovery: given action.file_path, walk up at most 5 levels looking for a
-tests/ directory, then search for test_{stem}.py files inside it.
-If none found, skip gracefully (return passed with skipped metadata).
-"""
+"""TestsStage — dispatches to language-specific test runners."""
 
 from __future__ import annotations
 
-import asyncio
-import glob as _glob
 import logging
-import sys
 import time
-from pathlib import Path
 from typing import TYPE_CHECKING
+
+from detent.pipeline.result import VerificationResult
+from detent.stages import javascript, python
+from detent.stages.base import VerificationStage, _detect_language, _validate_file_path
 
 if TYPE_CHECKING:
     from detent.schema import AgentAction
 
-from detent.config.languages import JS_TS_EXTENSIONS
-from detent.pipeline.result import Finding, VerificationResult
-from detent.stages.base import VerificationStage, _validate_file_path
-from detent.stages.tests_js import run_js_tests
-
 logger = logging.getLogger(__name__)
-
-_MAX_WALK_DEPTH = 5
-_PASSING_EXIT_CODES = frozenset({0, 5})  # 0=all passed, 5=no tests collected
-_JS_EXTENSIONS = JS_TS_EXTENSIONS
 
 
 class TestsStage(VerificationStage):
-    """Runs pytest on test files related to the modified source file.
-
-    If no related test file is found, returns passed=True with skipped metadata.
-    pytest exit code 5 (no tests collected) is also treated as passed.
-    """
+    """Runs tests related to the modified file. Python->pytest, JS/TS->jest/vitest, Go->go test, Rust->cargo test."""
 
     name = "tests"
 
     def supports_language(self, lang: str) -> bool:
-        return lang in {"python", "javascript", "typescript"}
+        return lang in {"python", "javascript", "typescript", "go", "rust"}
 
     async def _run(self, action: AgentAction) -> VerificationResult:
-        """Find related test files and run pytest on them."""
+        """Find and run related tests by dispatching to the appropriate language helper."""
         start = time.perf_counter()
-
         file_path = action.file_path or ""
+
         if file_path:
             _validate_file_path(file_path)
+
         if not file_path:
             duration_ms = (time.perf_counter() - start) * 1000
             return VerificationResult(
@@ -74,117 +57,45 @@ class TestsStage(VerificationStage):
                 metadata={"skipped": True, "reason": "No file_path in action"},
             )
 
-        ext = Path(file_path).suffix.lower()
-        if ext in _JS_EXTENSIONS:
-            timeout = self._config.timeout if self._config else 30
+        lang = _detect_language(file_path)
+        timeout = self._config.timeout if self._config else 30
+
+        if lang == "python":
+            findings = await python.run_pytest(file_path, self.name, timeout)
+            tool = "pytest"
+            if not findings:
+                # No test files found or all passed — check if it was a skip
+                duration_ms = (time.perf_counter() - start) * 1000
+                return VerificationResult(
+                    stage=self.name,
+                    passed=True,
+                    findings=[],
+                    duration_ms=duration_ms,
+                    metadata={"tool": tool, "language": lang},
+                )
+        elif lang in ("javascript", "typescript"):
             tool_override = self._config.tools[0] if self._config and self._config.tools else None
-            findings = await run_js_tests(file_path, timeout, tool_override)
-            duration_ms = (time.perf_counter() - start) * 1000
-            return VerificationResult(
-                stage=self.name,
-                passed=len(findings) == 0,
-                findings=findings,
-                duration_ms=duration_ms,
-                metadata={"tool": tool_override or "auto"},
-            )
+            findings = await javascript.run_jest(file_path, self.name, timeout, tool_override)
+            tool = tool_override or "auto"
+        elif lang == "go":
+            from detent.stages import go as _go
 
-        test_files = self._find_test_files(file_path)
-        if not test_files:
-            duration_ms = (time.perf_counter() - start) * 1000
-            logger.debug("[tests] no test files found for %s", file_path)
-            return VerificationResult(
-                stage=self.name,
-                passed=True,
-                findings=[],
-                duration_ms=duration_ms,
-                metadata={"skipped": True, "reason": f"No test files found for {Path(file_path).name}"},
-            )
+            findings = await _go.run_test(file_path, self.name, timeout)
+            tool = "go test"
+        elif lang == "rust":
+            from detent.stages import rust as _rust
 
-        logger.debug("[tests] running pytest on %s", [str(f) for f in test_files])
-
-        proc = await asyncio.create_subprocess_exec(
-            sys.executable,
-            "-m",
-            "pytest",
-            *[str(f) for f in test_files],
-            "--tb=short",
-            "-q",
-            "--no-header",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await proc.communicate()
+            findings = await _rust.run_test(file_path, self.name, timeout)
+            tool = "cargo test"
+        else:
+            findings = []
+            tool = "none"
 
         duration_ms = (time.perf_counter() - start) * 1000
-        output = stdout.decode("utf-8", errors="replace")
-
-        passed = proc.returncode in _PASSING_EXIT_CODES
-        if not passed and stderr:
-            logger.debug("[tests] pytest stderr: %s", stderr.decode("utf-8", errors="replace").strip())
-        findings = [] if passed else self._parse_failures(output, file_path)
-
         return VerificationResult(
             stage=self.name,
-            passed=passed,
+            passed=len(findings) == 0,
             findings=findings,
             duration_ms=duration_ms,
-            metadata={
-                "returncode": proc.returncode,
-                "test_files": [str(f) for f in test_files],
-            },
+            metadata={"tool": tool, "language": lang},
         )
-
-    def _find_test_files(self, file_path: str) -> list[Path]:
-        """Find test files related to the given source file.
-
-        Walks up from source file's directory, looking for a tests/ dir,
-        then searches for files named test_{stem}.py inside it.
-        """
-        path = Path(file_path)
-        if path.suffix != ".py":
-            return []
-
-        stem = path.stem
-        candidate = path.parent
-
-        for _ in range(_MAX_WALK_DEPTH):
-            tests_dir = candidate / "tests"
-            if tests_dir.is_dir():
-                matches = list(tests_dir.rglob(f"test_{_glob.escape(stem)}.py"))
-                if matches:
-                    return matches
-            parent = candidate.parent
-            if parent == candidate:
-                break
-            candidate = parent
-
-        return []
-
-    def _parse_failures(self, output: str, file_path: str) -> list[Finding]:
-        """Extract failed test names from pytest --tb=short -q output.
-
-        Lines starting with 'FAILED ' contain the test node ID followed by
-        ' - ' and the error message.
-        """
-        findings = []
-        for line in output.splitlines():
-            if line.startswith("FAILED "):
-                parts = line[7:].split(" - ", 1)
-                test_name = parts[0].strip()
-                error_detail = parts[1].strip() if len(parts) > 1 else ""
-                message = f"Test failed: {test_name}"
-                if error_detail:
-                    message += f" \u2014 {error_detail}"
-                findings.append(
-                    Finding(
-                        severity="error",
-                        file=file_path,
-                        line=None,
-                        column=None,
-                        message=message,
-                        code=None,
-                        stage=self.name,
-                        fix_suggestion=None,
-                    )
-                )
-        return findings

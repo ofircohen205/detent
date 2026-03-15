@@ -45,11 +45,12 @@ async def test_finding_has_line_number(stage: LintStage) -> None:
     assert result.findings[0].line == 1
 
 
-async def test_unsupported_extension_skips(stage: LintStage) -> None:
-    action = make_action(file_path="/src/main.go", content="package main\nfunc main() {}")
+async def test_unsupported_extension_passes_clean(stage: LintStage) -> None:
+    action = make_action(file_path="/src/main.rb", content="puts 'hello'")
     result = await stage.run(action)
     assert result.passed
-    assert result.metadata.get("skipped") is True
+    assert result.metadata.get("tool") == "none"
+    assert result.metadata.get("language") == "unknown"
 
 
 async def test_stage_name_is_lint(stage: LintStage) -> None:
