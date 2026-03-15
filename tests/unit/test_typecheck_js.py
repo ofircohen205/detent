@@ -1,4 +1,4 @@
-"""Unit tests for detent.stages.typecheck_js."""
+"""Unit tests for detent.stages.javascript — tsc (typecheck) helper."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from detent.stages.typecheck_js import run_tsc
+from detent.stages.javascript import run_tsc
 
 
 class FakeProc:
@@ -36,7 +36,7 @@ def patch_wait_for(monkeypatch: pytest.MonkeyPatch) -> None:
 async def test_no_tsconfig_warns(tmp_path: Path) -> None:
     src = tmp_path / "file.ts"
     src.write_text("let x: number = 1;\n")
-    result = await run_tsc(str(src), timeout=1)
+    result = await run_tsc(str(src), src.read_text(), stage_name="typecheck", timeout=1)
     assert result[0].code == "tsc/no-tsconfig"
 
 
@@ -50,7 +50,7 @@ async def test_tsc_not_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
         raise FileNotFoundError
 
     monkeypatch.setattr("asyncio.create_subprocess_exec", _raise)
-    result = await run_tsc(str(src), timeout=1)
+    result = await run_tsc(str(src), src.read_text(), stage_name="typecheck", timeout=1)
     assert result[0].code == "tsc/not-installed"
 
 
@@ -66,6 +66,6 @@ async def test_parses_tsc_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
         return FakeProc(returncode=1, stdout=stdout)
 
     monkeypatch.setattr("asyncio.create_subprocess_exec", _fake_exec)
-    result = await run_tsc(str(src), timeout=1)
+    result = await run_tsc(str(src), src.read_text(), stage_name="typecheck", timeout=1)
     assert result[0].code == "tsc/TS2322"
     assert result[0].severity == "error"

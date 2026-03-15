@@ -27,8 +27,11 @@ dependencies = [
     "tree-sitter-python>=0.23,<1",
     "tree-sitter-javascript>=0.23,<1",
     "tree-sitter-typescript>=0.23,<1",
+    "tree-sitter-go>=0.23,<1",
+    "tree-sitter-rust>=0.23,<1",
     "click>=8.1,<9",
     "rich>=13.7,<14",
+    "tomli>=2.0; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]

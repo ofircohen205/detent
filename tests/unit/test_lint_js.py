@@ -1,4 +1,4 @@
-"""Unit tests for detent.stages.lint_js."""
+"""Unit tests for detent.stages.javascript — ESLint (lint) helper."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from detent.stages.lint_js import run_eslint
+from detent.stages.javascript import run_eslint
 
 
 class FakeProc:
@@ -37,7 +37,7 @@ def patch_wait_for(monkeypatch: pytest.MonkeyPatch) -> None:
 async def test_no_config_warns(tmp_path: Path) -> None:
     src = tmp_path / "file.js"
     src.write_text("console.log('hello');\n")
-    result = await run_eslint(str(src), src.read_text(), timeout=1)
+    result = await run_eslint(str(src), src.read_text(), stage_name="lint", timeout=1)
     assert len(result) == 1
     assert "No ESLint config found" in result[0].message
 
@@ -52,7 +52,7 @@ async def test_missing_eslint_tool(tmp_path: Path, monkeypatch: pytest.MonkeyPat
         raise FileNotFoundError
 
     monkeypatch.setattr("asyncio.create_subprocess_exec", _raise)
-    result = await run_eslint(str(src), src.read_text(), timeout=1)
+    result = await run_eslint(str(src), src.read_text(), stage_name="lint", timeout=1)
     assert result[0].code == "eslint/not-installed"
 
 
@@ -82,7 +82,7 @@ async def test_parses_findings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
         return FakeProc(returncode=1, stdout=output)
 
     monkeypatch.setattr("asyncio.create_subprocess_exec", _fake_exec)
-    result = await run_eslint(str(src), src.read_text(), timeout=1)
+    result = await run_eslint(str(src), src.read_text(), stage_name="lint", timeout=1)
     assert len(result) == 1
     assert result[0].severity == "error"
     assert result[0].code == "eslint/no-console"
