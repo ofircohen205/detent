@@ -43,7 +43,7 @@ async def test_finding_has_original_file_path(stage: SyntaxStage) -> None:
 
 
 async def test_unsupported_extension_skips(stage: SyntaxStage) -> None:
-    action = make_action(file_path="/src/main.go", content="package main\nfunc main() {}")
+    action = make_action(file_path="/src/main.rb", content='puts "hello"')
     result = await stage.run(action)
     assert result.passed
     assert result.metadata.get("skipped") is True
@@ -73,5 +73,42 @@ async def test_supports_typescript(stage: SyntaxStage) -> None:
     assert stage.supports_language("typescript") is True
 
 
-async def test_does_not_support_go(stage: SyntaxStage) -> None:
-    assert stage.supports_language("go") is False
+async def test_supports_go(stage: SyntaxStage) -> None:
+    assert stage.supports_language("go") is True
+
+
+async def test_supports_rust(stage: SyntaxStage) -> None:
+    assert stage.supports_language("rust") is True
+
+
+async def test_does_not_support_py_alias(stage: SyntaxStage) -> None:
+    # Pipeline always sends "python", not "py"
+    assert stage.supports_language("py") is False
+
+
+async def test_valid_go_passes(stage: SyntaxStage) -> None:
+    action = make_action(file_path="/src/main.go", content="package main\n\nfunc main() {}\n")
+    result = await stage.run(action)
+    assert result.passed
+    assert result.findings == []
+
+
+async def test_invalid_go_fails(stage: SyntaxStage) -> None:
+    action = make_action(file_path="/src/main.go", content="package main\n\nfunc main( {\n")
+    result = await stage.run(action)
+    assert not result.passed
+    assert len(result.findings) > 0
+
+
+async def test_valid_rust_passes(stage: SyntaxStage) -> None:
+    action = make_action(file_path="/src/main.rs", content="fn main() {}\n")
+    result = await stage.run(action)
+    assert result.passed
+    assert result.findings == []
+
+
+async def test_invalid_rust_fails(stage: SyntaxStage) -> None:
+    action = make_action(file_path="/src/main.rs", content="fn main( {\n")
+    result = await stage.run(action)
+    assert not result.passed
+    assert len(result.findings) > 0
