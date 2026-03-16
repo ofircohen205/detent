@@ -1,12 +1,15 @@
 """Integration test for OpenTelemetry spans emitted by the pipeline."""
 
 import pytest
-from opentelemetry.sdk.metrics.export import NoOpMetricExporter
-from opentelemetry.sdk.trace.export import InMemorySpanExporter
+
+try:
+    from opentelemetry.sdk.trace.export import InMemorySpanExporter
+except ImportError:  # pragma: no cover - fallback for newer opentelemetry
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from detent.config import PipelineConfig, StageConfig, TelemetryConfig
 from detent.observability import setup_telemetry
-from detent.observability.exporter import ExporterBundle
+from detent.observability.exporter import ExporterBundle, NoOpMetricExporter
 from detent.observability.tracer import get_tracer
 from detent.pipeline.pipeline import VerificationPipeline
 from detent.pipeline.result import VerificationResult
@@ -28,8 +31,11 @@ async def test_pipeline_emits_spans(monkeypatch):
         metric_exporter=NoOpMetricExporter(),
     )
 
-    monkeypatch.setattr("detent.observability.exporter.build_exporter", lambda cfg: bundle)
+    monkeypatch.setattr("detent.observability.build_exporter", lambda cfg: bundle)
     monkeypatch.setattr("detent.observability._initialized", False)
+    monkeypatch.setattr("detent.observability.tracer._configured", False)
+    monkeypatch.setattr("detent.observability.metrics._meter_provider", None)
+    monkeypatch.setattr("detent.observability.metrics._meter", None)
 
     setup_telemetry(TelemetryConfig(enabled=True))
 
@@ -55,6 +61,13 @@ async def test_pipeline_emits_spans(monkeypatch):
         attributes={"detent.file_path": "/tmp/test.py", "detent.session_id": "sess_123"},
     ):
         await pipeline.run(action)
+
+    try:
+        from opentelemetry import trace
+
+        trace.get_tracer_provider().force_flush()
+    except Exception:
+        pass
 
     spans = bundle.span_exporter.get_finished_spans()
     names = {span.name for span in spans}

@@ -25,18 +25,18 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_meter_provider: object | None = None
-_meter: object | None = None
-_tool_calls_counter: object | None = None
-_pipeline_duration_histogram: object | None = None
-_stage_duration_histogram: object | None = None
-_stage_findings_histogram: object | None = None
-_savepoint_size_histogram: object | None = None
-_rollback_counter: object | None = None
-_proxy_request_histogram: object | None = None
-_proxy_retries_counter: object | None = None
-_circuit_breaker_trips_counter: object | None = None
-_circuit_breaker_state_instrument: object | None = None
+_meter_provider: Any | None = None
+_meter: Any | None = None
+_tool_calls_counter: Any | None = None
+_pipeline_duration_histogram: Any | None = None
+_stage_duration_histogram: Any | None = None
+_stage_findings_histogram: Any | None = None
+_savepoint_size_histogram: Any | None = None
+_rollback_counter: Any | None = None
+_proxy_request_histogram: Any | None = None
+_proxy_retries_counter: Any | None = None
+_circuit_breaker_trips_counter: Any | None = None
+_circuit_breaker_state_instrument: Any | None = None
 _circuit_states: dict[str, int] = {}
 
 
@@ -93,9 +93,13 @@ def _register_instruments(meter: Any) -> None:
     )
 
 
-def _circuit_state_callback(observable: Any) -> None:
-    for component, state in _circuit_states.items():
-        observable.observe(state, {"component": component})
+def _circuit_state_callback(_: Any) -> list[Any]:
+    try:
+        from opentelemetry.metrics import Observation
+    except ImportError:
+        return []
+
+    return [Observation(state, {"component": component}) for component, state in _circuit_states.items()]
 
 
 def _format_bool(value: bool) -> str:

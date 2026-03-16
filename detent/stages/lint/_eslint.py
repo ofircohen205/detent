@@ -21,7 +21,7 @@ import asyncio
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from detent.config.languages import ESLINT_CONFIG_FILES
 from detent.pipeline.result import Finding
@@ -51,7 +51,7 @@ def _parse_eslint_result(file_path: str, result: dict[str, list[dict[str, Any]]]
     findings: list[Finding] = []
     for message in result.get("messages", []):
         level = message.get("severity", 2)
-        severity = "error" if level == 2 else "warning"
+        severity: Literal["error", "warning"] = "error" if level == 2 else "warning"
         rule_id = message.get("ruleId") or "parse-error"
         findings.append(
             Finding(

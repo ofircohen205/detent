@@ -133,7 +133,9 @@ class SyntaxStage(VerificationStage):
         stack = [root]
         while stack:
             node = stack.pop()
-            if node.is_error or node.is_missing:
+            is_missing = node.is_missing
+            is_error = getattr(node, "is_error", False) or node.type == "ERROR"
+            if is_error or is_missing:
                 row, col = node.start_point
                 findings.append(
                     Finding(
@@ -141,7 +143,7 @@ class SyntaxStage(VerificationStage):
                         file=file_path,
                         line=row + 1,
                         column=col + 1,
-                        message=f"Syntax error: unexpected {'token' if node.is_error and not node.is_missing else 'token (missing)'}",
+                        message=f"Syntax error: unexpected {'token (missing)' if is_missing else 'token'}",
                         code="syntax-error",
                         stage=self.name,
                         fix_suggestion=None,

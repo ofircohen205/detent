@@ -36,11 +36,8 @@ from detent.adapters.langgraph import LangGraphAdapter
 from detent.checkpoint.engine import CheckpointEngine
 from detent.circuit_breaker import CircuitBreaker
 from detent.config import DetentConfig, PipelineConfig, ProxyConfig, StageConfig, TelemetryConfig
-from detent.feedback.synthesizer import (
-    EnrichedFinding,
-    FeedbackSynthesizer,
-    StructuredFeedback,
-)
+from detent.feedback.schemas import EnrichedFinding, StructuredFeedback
+from detent.feedback.synthesizer import FeedbackSynthesizer
 from detent.ipc import IPCControlChannel
 from detent.ipc.schemas import IPCMessageType
 from detent.pipeline.pipeline import VerificationPipeline

@@ -21,6 +21,7 @@ import asyncio
 import logging
 import re
 from pathlib import Path
+from typing import Literal
 
 from detent.config.languages import TS_CONFIG_FILENAME
 from detent.pipeline.result import Finding
@@ -137,7 +138,7 @@ async def run_tsc(file_path: str, content: str, stage_name: str, timeout: int) -
         match = _TSC_PATTERN.match(line.strip())
         if not match:
             continue
-        severity = "error" if match.group(4) == "error" else "warning"
+        severity: Literal["error", "warning"] = "error" if match.group(4) == "error" else "warning"
         findings.append(
             Finding(
                 severity=severity,
