@@ -7,34 +7,76 @@ Everything you need to know to develop Detent locally.
 ```
 detent/
 ├── detent/                      # Main package
-│   ├── __init__.py              # SDK exports (27 public APIs)
+│   ├── __init__.py              # SDK exports
 │   ├── schema.py                # AgentAction, ActionType, RiskLevel
-│   ├── config.py                # DetentConfig, PipelineConfig, etc.
-│   ├── cli.py                   # CLI commands (init, run, status, rollback)
-│   ├── proxy/
-│   │   ├── http_proxy.py        # HTTP reverse proxy (aiohttp)
-│   │   ├── session.py           # Proxy session manager
-│   │   └── types.py             # IPC message types
+│   ├── circuit_breaker.py       # Circuit breaker for stage resilience
 │   ├── adapters/                # Agent-specific adapters
 │   │   ├── base.py              # AgentAdapter base class
-│   │   ├── claude_code.py       # Claude Code PreToolUse hooks
-│   │   └── langgraph.py         # LangGraph VerificationNode
+│   │   ├── langgraph.py         # LangGraph VerificationNode
+│   │   ├── http/                # HTTP proxy adapters (API base URL override)
+│   │   │   ├── base.py
+│   │   │   ├── claude_code.py   # Claude Code PreToolUse hooks
+│   │   │   ├── cursor.py        # Cursor OpenAI-compatible adapter
+│   │   │   └── codex.py         # Codex CLI adapter
+│   │   └── hook/                # Hook adapters (preToolUse/callback)
+│   │       ├── base.py
+│   │       ├── gemini.py
+│   │       ├── litellm.py
+│   │       └── openapi.py
 │   ├── checkpoint/              # Atomic checkpoint/rollback
 │   │   ├── engine.py            # CheckpointEngine class
-│   │   └── savepoint.py         # SAVEPOINT and rollback logic
+│   │   ├── savepoint.py         # SAVEPOINT and rollback logic
+│   │   └── schemas.py           # Checkpoint data schemas
+│   ├── cli/                     # CLI commands (init, run, status, rollback)
+│   ├── config/                  # Configuration loading
+│   │   ├── __init__.py          # DetentConfig, PipelineConfig, etc.
+│   │   └── languages.py         # Per-language settings
+│   ├── feedback/                # Feedback synthesis
+│   │   ├── schemas.py           # StructuredFeedback, EnrichedFinding
+│   │   └── synthesizer.py       # FeedbackSynthesizer class
+│   ├── ipc/                     # IPC control channel
+│   │   ├── channel.py           # Unix socket communication
+│   │   └── schemas.py           # IPC message schemas
+│   ├── observability/           # OpenTelemetry traces and metrics
+│   │   ├── tracer.py
+│   │   ├── metrics.py
+│   │   ├── exporter.py
+│   │   └── schemas.py
 │   ├── pipeline/                # Verification pipeline
 │   │   ├── pipeline.py          # VerificationPipeline orchestrator
 │   │   └── result.py            # VerificationResult, Finding
-│   ├── stages/                  # Verification stages
-│   │   ├── base.py              # VerificationStage base class
-│   │   ├── syntax.py            # tree-sitter syntax validation
-│   │   ├── lint.py              # Ruff linting
-│   │   ├── typecheck.py         # mypy type checking
-│   │   └── tests.py             # pytest integration
-│   ├── feedback/                # Feedback synthesis
-│   │   └── synthesizer.py       # FeedbackSynthesizer class
-│   └── ipc/                     # IPC control channel
-│       └── channel.py           # Unix socket communication
+│   ├── proxy/                   # HTTP reverse proxy
+│   │   ├── http_proxy.py        # HTTP reverse proxy (aiohttp)
+│   │   ├── session.py           # Proxy session manager
+│   │   └── types.py             # Proxy types
+│   └── stages/                  # Verification stages
+│       ├── base.py              # VerificationStage base class
+│       ├── _subprocess.py       # Shared subprocess helpers
+│       ├── syntax/
+│       │   └── base.py          # tree-sitter syntax validation
+│       ├── languages/           # Language-specific helpers
+│       │   ├── _go.py
+│       │   └── _rust.py
+│       ├── lint/                # Linting (ruff, eslint, clippy, go vet)
+│       │   ├── base.py
+│       │   ├── _ruff.py
+│       │   ├── _eslint.py
+│       │   ├── _clippy.py
+│       │   └── _go_vet.py
+│       ├── typecheck/           # Type checking (mypy, tsc, cargo check, go build)
+│       │   ├── base.py
+│       │   ├── _mypy.py
+│       │   ├── _tsc.py
+│       │   ├── _cargo_check.py
+│       │   └── _go_build.py
+│       ├── tests/               # Test runners (pytest, jest, cargo test, go test)
+│       │   ├── base.py
+│       │   ├── _pytest.py
+│       │   ├── _jest.py
+│       │   ├── _cargo_test.py
+│       │   └── _go_test.py
+│       └── security/            # Security scanning (semgrep + bandit)
+│           └── base.py
 │
 ├── tests/
 │   ├── unit/                    # Fast tests (no external deps)
@@ -203,7 +245,8 @@ VerificationPipeline.run(action)
     ├─ SyntaxStage
     ├─ LintStage
     ├─ TypecheckStage
-    └─ TestsStage
+    ├─ TestsStage
+    └─ SecurityStage
     ↓
 VerificationResult(passed=bool, findings=[Finding])
     ↓
@@ -257,7 +300,7 @@ See [AGENTS.md](./AGENTS.md#adding-new-verification-stages) for detailed guide.
 
 Quick steps:
 
-1. Create `detent/stages/my_stage.py` implementing `VerificationStage`
+1. Create a subdirectory `detent/stages/my_stage/` with `base.py` (dispatcher) and optional language-specific helper files (e.g. `_python.py`, `_typescript.py`)
 2. Add your stage to `STAGE_REGISTRY` dict in `detent/stages/__init__.py`
 3. Enable in `detent.yaml`
 4. Write tests in `tests/unit/test_my_stage.py`

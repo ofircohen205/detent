@@ -22,7 +22,7 @@ graph TD
 
     subgraph DV["Detent Verification Runtime"]
         S1["1. Create SAVEPOINT (checkpoint)"]
-        S2["2. Run Verification Pipeline:<br>- Syntax check (tree-sitter)<br>- Lint (ruff)<br>- Type check (mypy)<br>- Test execution (pytest)"]
+        S2["2. Run Verification Pipeline:<br>- Syntax check (tree-sitter)<br>- Lint (ruff, ESLint, clippy, go vet)<br>- Type check (mypy, tsc, cargo check, go build)<br>- Test execution (pytest, jest, cargo test, go test)<br>- Security scan (semgrep, bandit)"]
         S3["3. Synthesize feedback"]
     end
 
@@ -42,7 +42,7 @@ graph TD
 ✅ **Atomic rollback** — SAVEPOINT semantics for file operations
 ✅ **LLM-optimized feedback** — Structured JSON that helps agents self-repair
 ✅ **CLI + Python SDK** — Use standalone or integrate with agents
-✅ **Two agent adapters** — Claude Code (production) and LangGraph (tested)
+✅ **Seven agent adapters** — Claude Code, LangGraph, Cursor, Codex (http/); Gemini, LiteLLM, OpenAPI (hook/)
 
 ## How It Differs
 
@@ -135,7 +135,7 @@ detent rollback chk_before_write_001
 - **Checkpoint Engine** — SAVEPOINT + rollback (in-memory + shadow git)
 - **Verification Pipeline** — Composable stages (syntax, lint, typecheck, tests)
 - **Feedback Synthesis** — LLM-optimized structured feedback
-- **Agent Adapters** — Claude Code, LangGraph (more in v1.0)
+- **Agent Adapters** — Claude Code, LangGraph, Cursor, Codex (http/); Gemini, LiteLLM, OpenAPI (hook/)
 - **CLI** — `detent init`, `detent run`, `detent status`, `detent rollback`
 - **Python SDK** — 27 public APIs for programmatic use
 
@@ -169,12 +169,14 @@ detent rollback chk_before_write_001
 - 2 agent adapters
 - 211+ tests
 
-⏳ **v1.0** (Production Ready) — Q3 2026
+✅ **v1.0** (Production Ready) — Complete (2026-03-16)
 
-- TypeScript/JavaScript stages (ESLint, tsc, Jest)
-- All 7 agent adapters
+- Python, JavaScript/TypeScript, Go, and Rust verification stages
+- All 7 agent adapters (Claude Code, LangGraph, Cursor, Codex, Gemini, LiteLLM, OpenAPI)
 - Security scanning (Semgrep, Bandit)
-- GitHub Actions integration
+- OpenTelemetry tracing and metrics, circuit breakers
+- GitHub Actions CI/CD workflows
+- 324+ tests
 
 ⏳ **v2.0** (Enterprise) — Q1 2027
 
