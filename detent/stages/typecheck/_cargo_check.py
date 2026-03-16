@@ -64,6 +64,12 @@ async def run_check(file_path: str, content: str, stage_name: str, timeout: int)
     logger.debug("[%s] cargo check returncode=%s", stage_name, rc)
     if rc == 0:
         return []
+
+    # Always try JSON first — cargo may emit diagnostics before failing (rc >= 101)
+    json_findings = _parse_cargo_json(stdout, file_path, stage_name)
+    if json_findings:
+        return json_findings
+
     if rc is not None and rc >= 101:
         return [
             Finding(
@@ -77,4 +83,4 @@ async def run_check(file_path: str, content: str, stage_name: str, timeout: int)
                 fix_suggestion=None,
             )
         ]
-    return _parse_cargo_json(stdout, file_path, stage_name)
+    return []

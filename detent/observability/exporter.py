@@ -82,10 +82,10 @@ def build_exporter(config: TelemetryConfig) -> ExporterBundle:
 
     try:
         from opentelemetry.exporter.otlp.proto.grpc import (
-            metric_exporter as otlp_metric_module,  # type: ignore[import-not-found]
+            metric_exporter as otlp_metric_module,
         )
         from opentelemetry.exporter.otlp.proto.grpc import (
-            trace_exporter as otlp_trace_module,  # type: ignore[import-not-found]
+            trace_exporter as otlp_trace_module,
         )
     except ImportError:
         otlp_metric_exporter = None
