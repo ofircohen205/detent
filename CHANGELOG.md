@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-03-16
+
+### Added
+
+- **Security Stage** — Semgrep + Bandit static analysis, concurrent execution, deduplication
+- **Go & Rust verification stages** — `go vet`/`go build`/`go test` and `cargo check`/`clippy`/`cargo test`
+- **TypeScript/JavaScript stages** — ESLint lint and `tsc` typecheck support
+- **OpenAI adapter** — Interception for Cursor, Codex, and other OpenAI-compatible agents
+- **OpenTelemetry observability** — Distributed tracing and metrics with circuit breakers
+- **Docker support** — `Dockerfile`, `docker-compose.yml`, and `Makefile` targets
+- **CI/CD workflows** — `ci.yml` (lint + typecheck + tests), `security.yml` (bandit, pip-audit, detect-secrets), `pre-publish.yml` and `publish.yml` (PyPI release gate)
+- **324 tests** — Full unit and integration coverage across all stages and adapters
+
+### Fixed
+
+- **Semgrep exit code** — v1.x returns exit code 0 even when findings exist; now always parses JSON output regardless of exit code
+- **Cargo check robustness** — Parses stdout JSON first on any non-zero exit code before falling back to generic warning
+- **Observability ImportError** — `setup_telemetry` now wraps missing SDK errors with a human-readable message
+- **mypy unused-ignore** — Added override for `opentelemetry.exporter.otlp.proto.grpc` to handle environments where the package may or may not be installed
+
+### Changed
+
+- **Project structure refactored** — Stages split into language-specific helpers; adapters reorganised into `http` and `hook` packages
+- Version bumped from `0.1.2` → `1.0.0`
+
 ## [0.1.2] - 2026-03-12
 
 ### Fixed
