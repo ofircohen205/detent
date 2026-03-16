@@ -99,18 +99,35 @@ Detent intercepts individual tool calls via agent-specific adapters before they 
 
 ## Agent Adapter Matrix
 
-| Agent                | Interception Mechanism                                        | Status |
-| -------------------- | ------------------------------------------------------------- | ------ |
-| **Claude Code**      | `PreToolUse`/`PostToolUse` hooks + HTTP proxy                 | ✅     |
-| **LangGraph**        | `VerificationNode` inserted into graph + LangChain callback   | ✅     |
-| **Cursor**           | OpenAI-compatible HTTP proxy adapter                          | ✅     |
-| **Codex CLI**        | OpenAI-compatible HTTP proxy adapter                          | ✅     |
-| **LiteLLM**          | Callback hook (observability-only; no rollback)               | ✅     |
-| **Gemini**           | HTTP hook adapter (`/hooks/gemini`)                           | ✅     |
-| **OpenAPI**          | Generic HTTP hook adapter (`/hooks/openapi`)                  | ✅     |
-| **Aider**            | LiteLLM callback injection + `Coder` subclass                 | ❌     |
-| **Cline / Roo Code** | MCP stdio proxy + `.clinerules`/hooks                         | ❌     |
-| **OpenHands**        | Event stream subscription + REST API                          | ❌     |
+**HTTP adapters** (interception via API base URL override):
+
+| Agent           | Interception Mechanism                        | Module                          | Status |
+| --------------- | --------------------------------------------- | ------------------------------- | ------ |
+| **Claude Code** | `PreToolUse`/`PostToolUse` hooks + HTTP proxy | `adapters/http/claude_code.py`  | ✅     |
+| **Cursor**      | OpenAI-compatible HTTP proxy adapter          | `adapters/http/cursor.py`       | ✅     |
+| **Codex CLI**   | OpenAI-compatible HTTP proxy adapter          | `adapters/http/codex.py`        | ✅     |
+
+**Hook adapters** (preToolUse/callback hooks):
+
+| Agent       | Interception Mechanism                              | Module                        | Status |
+| ----------- | --------------------------------------------------- | ----------------------------- | ------ |
+| **Gemini**  | HTTP hook adapter (`/hooks/gemini`)                 | `adapters/hook/gemini.py`     | ✅     |
+| **LiteLLM** | Callback hook (observability-only; no rollback)     | `adapters/hook/litellm.py`    | ✅     |
+| **OpenAPI** | Generic HTTP hook adapter (`/hooks/openapi`)        | `adapters/hook/openapi.py`    | ✅     |
+
+**Graph adapters**:
+
+| Agent        | Interception Mechanism                                      | Module                  | Status |
+| ------------ | ----------------------------------------------------------- | ----------------------- | ------ |
+| **LangGraph** | `VerificationNode` inserted into graph + LangChain callback | `adapters/langgraph.py` | ✅     |
+
+**Planned adapters**:
+
+| Agent                | Interception Mechanism                        | Status |
+| -------------------- | --------------------------------------------- | ------ |
+| **Aider**            | LiteLLM callback injection + `Coder` subclass | ❌     |
+| **Cline / Roo Code** | MCP stdio proxy + `.clinerules`/hooks         | ❌     |
+| **OpenHands**        | Event stream subscription + REST API          | ❌     |
 
 ### Claude Code Adapter
 
@@ -195,26 +212,22 @@ detent status                      # show current session checkpoint state
 
 Stages are composable and configured via `detent.yaml`. They run sequentially by default; parallel execution is configurable for independent stages.
 
-### P0 Stages (v0.1 — Python-focused)
+### Stages (v1.0 — multi-language)
 
-> v0.1 focuses on Python tooling. TypeScript/JavaScript support is P1 (v1.0).
+| Stage                       | Tools                                                   | Languages                                        |
+| --------------------------- | ------------------------------------------------------- | ------------------------------------------------ |
+| **Syntax validation**       | tree-sitter                                             | Python, JavaScript/TypeScript, Rust, Go          |
+| **Linting**                 | Ruff, ESLint, Clippy, go vet                            | Python (ruff), JS/TS (eslint), Rust (clippy), Go (go vet) |
+| **Type checking**           | mypy, tsc, cargo check, go build                        | Python (mypy), TypeScript (tsc), Rust (cargo check), Go (go build) |
+| **Targeted test execution** | pytest, jest, cargo test, go test                       | Python (pytest), JS/TS (jest), Rust (cargo test), Go (go test) |
+| **Security scanning** ✅    | Bandit + Semgrep (configurable rulesets)                | Python + multi-language (semgrep)                |
 
-| Stage                       | Tools                        | Languages             |
-| --------------------------- | ---------------------------- | --------------------- |
-| **Syntax validation**       | tree-sitter                  | Python (+ TS/JS P1)   |
-| **Linting**                 | Ruff (Python)                | Python (ESLint is P1) |
-| **Type checking**           | mypy (Python)                | Python (tsc is P1)    |
-| **Targeted test execution** | `pytest -k` (modified files) | Python (Jest is P1)   |
-
-### P1 Stages (v1.0)
+### Future Stages (v1.x)
 
 | Stage                 | Tools                                                          |
 | --------------------- | -------------------------------------------------------------- |
-| **Security scanning** | Bandit + Semgrep (configurable rulesets)                       |
 | **Dependency audit**  | pip-audit, npm audit, hallucinated package detection           |
-| **Static analysis**   | Semgrep custom rules, configurable ruleset                     |
 | **Test generation**   | LLM-assisted test scaffold for uncovered code paths (optional) |
-| **Rust support**      | `cargo clippy` + `cargo test`                                  |
 
 ### detent.yaml configuration
 
@@ -347,8 +360,17 @@ All SDK methods are **async**.
 
 ### 1. Implement `VerificationStage`
 
+Stages are organized as subdirectories. Create a `base.py` for the stage dispatcher and language-specific helper files as needed:
+
+```
+detent/stages/my_stage/
+├── base.py           # Stage dispatcher (routes to language-specific helpers)
+├── _python.py        # Python-specific logic (optional)
+└── _typescript.py    # TypeScript-specific logic (optional)
+```
+
 ```python
-# detent/stages/my_stage.py
+# detent/stages/my_stage/base.py
 from detent.stages.base import VerificationStage, VerificationResult, Finding
 
 class MyCustomStage(VerificationStage):
@@ -476,7 +498,7 @@ Mock the agent's raw event format and verify normalization produces correct `Age
 
 ---
 
-## Implementation — v0.1 Phase 6
+## Implementation Details
 
 ### HTTP Proxy (`DetentProxy`)
 
@@ -554,7 +576,7 @@ DETENT_SESSION_DIR=.detent/session
 **Integration tests:**
 - `tests/integration/test_proxy_ipc_full_flow.py` — full flow with real checkpoint engine and pipeline
 
-**Coverage:** 160 tests total (150 unit + 10 integration), >85% coverage for proxy, IPC, session manager
+**Coverage:** 324 tests total, >85% coverage for proxy, IPC, session manager
 
 ---
 
@@ -631,27 +653,28 @@ async def run(self, action: AgentAction) -> VerificationResult:
 
 ## Release Milestones
 
-### v0.1 — Proof of Concept (current focus)
+### v0.1 — Proof of Concept ✅ Complete
 
-- [ ] Dual-point proxy for Claude Code (HTTP proxy + PreToolUse/PostToolUse hooks)
-- [ ] LangGraph `VerificationNode`
-- [ ] Checkpoint engine: in-memory SAVEPOINTs + shadow git backup
-- [ ] Verification pipeline: syntax, linting, type checking, targeted tests
-- [ ] Feedback synthesis engine: root cause localization + structured JSON output
-- [ ] Atomic rollback on verification failure
-- [ ] `detent.yaml` configuration
-- [ ] `detent init` CLI for Claude Code
-- [ ] Python SDK: `DetentProxy`, `VerificationPipeline`, `VerificationStage`
-- [ ] Unit tests for `VerificationPipeline` and `CheckpointEngine`
+- [x] Dual-point proxy for Claude Code (HTTP proxy + PreToolUse/PostToolUse hooks)
+- [x] LangGraph `VerificationNode`
+- [x] Checkpoint engine: in-memory SAVEPOINTs + shadow git backup
+- [x] Verification pipeline: syntax, linting, type checking, targeted tests
+- [x] Feedback synthesis engine: root cause localization + structured JSON output
+- [x] Atomic rollback on verification failure
+- [x] `detent.yaml` configuration
+- [x] `detent init` CLI for Claude Code
+- [x] Python SDK: `DetentProxy`, `VerificationPipeline`, `VerificationStage`
+- [x] Unit tests for `VerificationPipeline` and `CheckpointEngine`
 
-### v1.0 — Production Ready (6 months)
+### v1.0 — Production Ready ✅ Complete
 
-- All 7 agent adapters complete
-- Security scanning pipeline (Bandit + Semgrep; Gitleaks TBD)
-- Plugin system with entry point discovery
-- GitHub Actions integration
-- OpenTelemetry traces
-- Policy profiles (strict, standard, permissive)
+- [x] All 7 agent adapters (HTTP: Claude Code, Cursor, Codex; Hook: Gemini, LiteLLM, OpenAPI; Graph: LangGraph)
+- [x] Security scanning pipeline (Bandit + Semgrep)
+- [x] Multi-language support: Python, JavaScript/TypeScript, Rust, Go
+- [x] Observability: OpenTelemetry traces and metrics (`detent/observability/`)
+- [x] Circuit breaker (`detent/circuit_breaker.py`)
+- [x] Policy profiles (strict, standard, permissive)
+- [x] 324 tests
 
 ### v2.0 — Enterprise Platform (12 months)
 
@@ -684,7 +707,7 @@ async def run(self, action: AgentAction) -> VerificationResult:
 
 ---
 
-## Phase 8: CLI & SDK (v0.1 Completion)
+## CLI & SDK
 
 ### CLI Commands
 
@@ -813,5 +836,5 @@ Integration test:
 
 ---
 
-**Last Updated:** 2026-03-14
-**Version:** 0.1.0
+**Last Updated:** 2026-03-16
+**Version:** 1.0.0

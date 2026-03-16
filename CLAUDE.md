@@ -23,9 +23,9 @@ Detent is **not** a code review product, code generation tool, or CI plugin. It 
 
 **Current Status:**
 
-- ✅ v0.1 (Proof of Concept) — Complete. Full package with CLI, SDK exports, session management, verification pipeline, checkpoint engine, and 211+ tests.
-- ⏳ v1.0 (Production Ready) — 6 months
-- ⏳ v2.0 (Enterprise Platform) — 12 months
+- ✅ v0.1 (Proof of Concept) — Complete. Full package with CLI, SDK exports, session management, verification pipeline, checkpoint engine, and 324+ tests.
+- ✅ v1.0 (Production Ready) — Complete (released 2026-03-16)
+- ⏳ v2.0 (Enterprise Platform) — Planned
 
 **Key Documentation:**
 
@@ -112,51 +112,35 @@ Point 2 (Tool Execution Layer):
 | **CLI**                   | `detent init`, `detent run`, `detent status`, `detent rollback`      |
 | **Python SDK**            | `DetentProxy`, `VerificationPipeline`, `VerificationStage`           |
 
-### Project Structure (target layout for v0.1)
-
-> **Note:** This is the target layout. The `detent/` package does not exist yet.
+### Project Structure (v1.0.0)
 
 ```
 detent/
-├── detent/                    # Main package
-│   ├── proxy/                 # HTTP reverse proxy (Point 1)
-│   │   └── http_proxy.py
-│   ├── adapters/              # Agent adapters (Point 2 — v0.1: Claude Code + LangGraph only)
-│   │   ├── base.py            # AgentAdapter base class
-│   │   ├── claude_code.py     # PreToolUse/PostToolUse hooks
-│   │   └── langgraph.py       # VerificationNode
-│   ├── checkpoint/            # Checkpoint engine
-│   │   ├── engine.py          # CheckpointEngine
-│   │   └── savepoint.py       # SAVEPOINT / rollback logic
-│   ├── pipeline/              # Verification pipeline
-│   │   ├── pipeline.py        # VerificationPipeline
-│   │   └── result.py          # VerificationResult, Finding
-│   ├── stages/                # Verification stages (v0.1: Python-focused)
-│   │   ├── base.py            # VerificationStage base class
-│   │   ├── syntax.py          # tree-sitter syntax validation
-│   │   ├── lint.py            # Ruff (Python); ESLint support is P1
-│   │   ├── typecheck.py       # mypy (Python); tsc support is P1
-│   │   └── tests.py           # pytest (Python); Jest support is P1
-│   ├── feedback/              # Feedback synthesis engine
-│   │   └── synthesizer.py
-│   ├── ipc/                   # IPC control channel
-│   │   └── channel.py         # Unix domain socket (NDJSON)
-│   ├── schema.py              # AgentAction, normalized schema
-│   ├── config.py              # detent.yaml loader
-│   └── cli.py                 # detent init, run, status, rollback
-├── tests/
-│   ├── unit/                  # Fast, no external deps
-│   └── integration/           # Full pipeline tests
-├── docs/
-│   ├── PRD.docx
-│   ├── SRS.docx
-│   └── ADD.docx
-├── detent.yaml                # Example config
-├── pyproject.toml
-├── CLAUDE.md                  # This file
-├── GEMINI.md
-├── AGENTS.md
-└── README.md
+├── __init__.py
+├── schema.py
+├── circuit_breaker.py
+├── adapters/
+│   ├── base.py
+│   ├── langgraph.py
+│   ├── http/          ← claude_code.py, cursor.py, codex.py
+│   └── hook/          ← gemini.py, litellm.py, openapi.py
+├── checkpoint/        ← engine.py, savepoint.py, schemas.py
+├── cli/               ← app.py, init.py, run.py, status.py, rollback.py, proxy.py
+├── config/            ← __init__.py, languages.py
+├── feedback/          ← synthesizer.py, schemas.py
+├── ipc/               ← channel.py, schemas.py
+├── observability/     ← tracer.py, metrics.py, exporter.py, schemas.py
+├── pipeline/          ← pipeline.py, result.py
+├── proxy/             ← http_proxy.py, session.py, types.py
+└── stages/
+    ├── base.py
+    ├── _subprocess.py
+    ├── syntax/        ← base.py
+    ├── languages/     ← _go.py, _rust.py
+    ├── lint/          ← base.py, _ruff.py, _eslint.py, _clippy.py, _go_vet.py
+    ├── typecheck/     ← base.py, _mypy.py, _tsc.py, _cargo_check.py, _go_build.py
+    ├── tests/         ← base.py, _pytest.py, _jest.py, _cargo_test.py, _go_test.py
+    └── security/      ← base.py (Semgrep + Bandit)
 ```
 
 ### Normalized Action Schema
@@ -279,14 +263,18 @@ from detent.pipeline.result import VerificationResult, Finding
 from detent.stages.base import VerificationStage
 from detent.stages.syntax import SyntaxStage
 from detent.stages.lint import LintStage
+from detent.stages.security import SecurityStage
 
 # Checkpoint
 from detent.checkpoint.engine import CheckpointEngine
 
 # Adapters
 from detent.adapters.base import AgentAdapter
-from detent.adapters.claude_code import ClaudeCodeAdapter
+from detent.adapters.http.claude_code import ClaudeCodeAdapter
 from detent.adapters.langgraph import VerificationNode
+
+# Observability
+from detent.observability import setup_telemetry
 
 # Config
 from detent.config import DetentConfig
@@ -337,12 +325,16 @@ DETENT_LOG_LEVEL=INFO                     # DEBUG | INFO | WARNING | ERROR
   - Verification pipeline: syntax, lint, typecheck, targeted tests ✅
   - Feedback synthesis engine (structured JSON) ✅
   - `detent.yaml`, `detent init` CLI, Python SDK ✅
-  - Full unit tests for pipeline and checkpoint engine (211+ tests) ✅
+  - Full unit tests for pipeline and checkpoint engine (324+ tests) ✅
 
-- ⏳ **v1.0 (Production Ready, 6 months):**
-  - All 7 agent adapters; security scanning; plugin system; GitHub Actions; OpenTelemetry
+- ✅ **v1.0 (Production Ready) — Complete (released 2026-03-16):**
+  - HTTP adapters (Claude Code, Cursor, Codex) + hook adapters (Gemini, LiteLLM, OpenAPI) ✅
+  - Multi-language stages: Python, JavaScript/TypeScript, Go, Rust ✅
+  - Security scanning (Semgrep + Bandit) ✅
+  - OpenTelemetry tracing + metrics; circuit breakers ✅
+  - Docker + docker-compose ✅
 
-- ⏳ **v2.0 (Enterprise Platform, 12 months):**
+- ⏳ **v2.0 (Enterprise Platform) — Planned:**
   - Detent Cloud (managed SaaS); multi-agent orchestration; VS Code extension
 
 See [docs/PRD.docx](./docs/PRD.docx) for full requirements.
@@ -458,5 +450,5 @@ result = await pipeline.run(action)
 
 ---
 
-**Last Updated:** 2026-03-08
-**Version:** 0.1.0
+**Last Updated:** 2026-03-16
+**Version:** 1.0.0
