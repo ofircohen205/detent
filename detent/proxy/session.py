@@ -29,8 +29,11 @@ if TYPE_CHECKING:
     from detent.schema import AgentAction
 
 from detent.feedback.synthesizer import FeedbackSynthesizer
+from detent.ipc.schemas import IPCMessage, IPCMessageType
+from detent.observability.metrics import record_rollback, record_tool_call
+from detent.observability.tracer import get_tracer
 from detent.pipeline.result import VerificationResult
-from detent.proxy.types import DetentSessionConflictError, IPCMessage, IPCMessageType
+from detent.proxy.types import DetentSessionConflictError, SessionState
 
 logger = logging.getLogger(__name__)
 
@@ -66,10 +69,18 @@ class SessionManager:
         self.ipc_channel = ipc_channel
         self.synthesizer = synthesizer or FeedbackSynthesizer()
 
-        self.is_active = False
-        self.session_id: str | None = None
-        self._checkpoint_refs: list[str] = []
+        self._state: SessionState | None = None
         self._lock = asyncio.Lock()
+
+    @property
+    def is_active(self) -> bool:
+        """Whether a session is currently active."""
+        return self._state is not None
+
+    @property
+    def session_id(self) -> str | None:
+        """Active session ID, or None."""
+        return self._state.session_id if self._state else None
 
     async def start_session(self, session_id: str) -> None:
         """Start a verification session.
@@ -81,12 +92,13 @@ class SessionManager:
             DetentSessionConflictError if session already active
         """
         async with self._lock:
-            if self.is_active:
-                raise DetentSessionConflictError(f"Session already active: {self.session_id}")
+            if self._state is not None:
+                raise DetentSessionConflictError(f"Session already active: {self._state.session_id}")
 
-            self.is_active = True
-            self.session_id = session_id
-            self._checkpoint_refs = []
+            self._state = SessionState(
+                session_id=session_id,
+                started_at=datetime.now(UTC).isoformat(),
+            )
 
         logger.info("[session] started session %s", session_id)
 
@@ -107,9 +119,7 @@ class SessionManager:
         session_id = self.session_id
 
         async with self._lock:
-            self.is_active = False
-            self.session_id = None
-            self._checkpoint_refs = []
+            self._state = None
 
         logger.info("[session] ended session %s", session_id)
 
@@ -122,7 +132,7 @@ class SessionManager:
             )
         )
 
-    async def intercept_tool_call(self, action: AgentAction) -> VerificationResult:
+    async def intercept_tool_call(self, action: AgentAction | None) -> VerificationResult:
         """Intercept and verify a tool call.
 
         Args:
@@ -131,7 +141,15 @@ class SessionManager:
         Returns:
             Verification result (pass/fail with findings)
         """
-        if not self.is_active:
+        if action is None:
+            logger.debug("[session] no action to verify; skipping pipeline")
+            return VerificationResult(
+                stage="session",
+                passed=True,
+                findings=[],
+                duration_ms=0.0,
+            )
+        if self._state is None:
             logger.warning("[session] tool call intercepted but no active session")
             return VerificationResult(
                 stage="session",
@@ -141,42 +159,57 @@ class SessionManager:
             )
 
         # Create checkpoint reference
-        checkpoint_ref = f"chk_before_write_{len(self._checkpoint_refs):03d}"
+        checkpoint_ref = f"chk_before_write_{len(self._state.checkpoint_refs):03d}"
+        tracer = get_tracer(__name__)
+        span_attrs = {
+            "detent.session_id": self.session_id,
+            "detent.tool_call_id": action.tool_call_id,
+            "detent.action_type": action.action_type,
+            "detent.agent": action.agent,
+            "detent.risk_level": action.risk_level.value,
+            "detent.file_path": action.file_path or "<unknown>",
+        }
 
         try:
-            # Create SAVEPOINT before running pipeline
-            files = [action.file_path] if action.file_path else []
-            await self.checkpoint_engine.savepoint(checkpoint_ref, files)
+            with tracer.start_as_current_span("detent.tool_call", attributes=span_attrs) as span:
+                # Create SAVEPOINT before running pipeline
+                files = [action.file_path] if action.file_path else []
+                await self.checkpoint_engine.savepoint(checkpoint_ref, files)
 
-            async with self._lock:
-                self._checkpoint_refs.append(checkpoint_ref)
+                async with self._lock:
+                    self._state.checkpoint_refs.append(checkpoint_ref)
+                    self._state.active_tool_call_id = action.tool_call_id
 
-            logger.info("[session] created checkpoint %s", checkpoint_ref)
+                logger.info("[session] created checkpoint %s", checkpoint_ref)
 
-            # Update action with checkpoint ref
-            action.checkpoint_ref = checkpoint_ref
+                # Update action with checkpoint ref
+                action.checkpoint_ref = checkpoint_ref
+                span.set_attribute("detent.checkpoint_ref", checkpoint_ref)
 
-            # Notify IPC of intercepted tool
-            await self.ipc_channel.send_message(
-                IPCMessage(
-                    type=IPCMessageType.TOOL_INTERCEPTED,
-                    data={
-                        "tool_call_id": action.tool_call_id,
-                        "action": action.model_dump(),
-                    },
-                    timestamp=datetime.now(UTC).isoformat(),
+                # Notify IPC of intercepted tool
+                await self.ipc_channel.send_message(
+                    IPCMessage(
+                        type=IPCMessageType.TOOL_INTERCEPTED,
+                        data={
+                            "tool_call_id": action.tool_call_id,
+                            "action": action.model_dump(),
+                        },
+                        timestamp=datetime.now(UTC).isoformat(),
+                    )
                 )
-            )
 
-            # Run verification pipeline
-            result = await self.pipeline.run(action)
+                # Run verification pipeline
+                result = await self.pipeline.run(action)
 
-            if result.passed:
-                await self._on_verification_pass(action, result)
-            else:
-                await self._on_verification_fail(action, result, checkpoint_ref)
+                span.set_attribute("detent.tool_call.passed", result.passed)
+                record_tool_call(action.agent, action.action_type.value, result.passed)
 
-            return result
+                if result.passed:
+                    await self._on_verification_pass(action, result)
+                else:
+                    await self._on_verification_fail(action, result, checkpoint_ref)
+
+                return result
         except Exception as e:
             logger.error("[session] tool interception failed: %s", e)
             return VerificationResult(
@@ -217,6 +250,7 @@ class SessionManager:
         checkpoint_ref: str,
     ) -> None:
         """Handle verification failure."""
+        record_rollback(result.stage)
         logger.info(
             "[session] verification failed for tool %s, rolling back",
             action.tool_name,

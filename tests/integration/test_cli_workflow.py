@@ -72,9 +72,9 @@ async def test_full_workflow(tmp_path):
         mock_checkpoint.return_value = mock_checkpoint_instance
 
         # Run verification
-        result = await run_file(str(test_file), config, session)
+        passed, _ = await run_file(str(test_file), config, session)
 
-        assert result is True
+        assert passed is True
         assert len(session["checkpoints"]) == 1
         assert session["checkpoints"][0]["ref"] == "chk_before_write_000"
 
@@ -86,7 +86,7 @@ async def test_full_workflow(tmp_path):
     assert len(session["checkpoints"]) > 0
 
     # Step 5: Mock rollback and verify
-    with patch("detent.cli.CheckpointEngine") as mock_checkpoint:
+    with patch("detent.cli.rollback.CheckpointEngine") as mock_checkpoint:
         mock_checkpoint_instance = AsyncMock()
         mock_checkpoint_instance.rollback = AsyncMock()
         mock_checkpoint.return_value = mock_checkpoint_instance
@@ -94,7 +94,7 @@ async def test_full_workflow(tmp_path):
         # This would be called by do_rollback
         from detent.cli import do_rollback
 
-        await do_rollback("chk_before_write_000")
+        await do_rollback("chk_before_write_000", yes=True)
 
         # Verify rollback was called
         mock_checkpoint_instance.rollback.assert_called_once_with("chk_before_write_000")

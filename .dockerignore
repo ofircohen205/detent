@@ -55,3 +55,5 @@ docs/
 
 # Test files (not needed in production image)
 tests/
+.env
+.secrets.baseline

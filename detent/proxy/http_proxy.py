@@ -18,28 +18,30 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import ssl
+import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 from urllib.parse import urlparse
 
 import aiohttp
 import certifi
 from aiohttp import web
 
-logger = logging.getLogger(__name__)
+from detent.circuit_breaker import CircuitBreaker, CircuitOpenError
+from detent.config import ALLOWED_UPSTREAM_HOSTS
+from detent.observability.metrics import record_proxy_request, record_proxy_retry
+from detent.observability.tracer import get_tracer
+from detent.proxy.types import SessionState
 
-_ALLOWED_UPSTREAM_HOSTS: frozenset[str] = frozenset({"api.anthropic.com", "api.openai.com"})
+logger = logging.getLogger(__name__)
 
 
 class DetentProxy:
     """HTTP reverse proxy intercepting LLM API traffic.
 
-    Listens on 127.0.0.1:{port}, forwards all requests to upstream LLM API,
-    extracts tool calls before returning response to client.
+    Listens on 127.0.0.1:{port}, forwards all requests to upstream LLM API.
     """
 
     def __init__(
@@ -49,6 +51,7 @@ class DetentProxy:
         connect_timeout_s: float = 10.0,
         session_dir: Path | str | None = None,
         ssl_context: ssl.SSLContext | None = None,
+        strict_mode: bool = False,
     ) -> None:
         """Initialize HTTP proxy.
 
@@ -63,18 +66,21 @@ class DetentProxy:
         """
         self.port = port
         _host = urlparse(upstream_url).hostname or ""
-        if _host not in _ALLOWED_UPSTREAM_HOSTS:
-            raise ValueError(f"upstream_url host {_host!r} is not in allowlist: {sorted(_ALLOWED_UPSTREAM_HOSTS)}")
+        if _host not in ALLOWED_UPSTREAM_HOSTS:
+            raise ValueError(f"upstream_url host {_host!r} is not in allowlist: {sorted(ALLOWED_UPSTREAM_HOSTS)}")
         self.upstream_url = upstream_url
         self.connect_timeout_s = connect_timeout_s
         self.session_dir = Path(session_dir or ".detent/session")
         self.is_running = False
-        self._app: web.Application | None = None
+        self._app: web.Application = web.Application()
         self._runner: web.AppRunner | None = None
         self._session_id: str | None = None
         self._retry_count = 0
         self._max_retries = 3
         self._session_lock = asyncio.Lock()
+        self._routes_configured = False
+        self.strict_mode = strict_mode
+        self._proxy_breaker = CircuitBreaker(name="proxy")
         if ssl_context is not None:
             self._ssl_context = ssl_context
         else:
@@ -82,9 +88,10 @@ class DetentProxy:
 
     async def start(self) -> None:
         """Start the HTTP proxy server."""
-        self._app = web.Application()
-        self._app.router.add_get("/health", self._health_handler)
-        self._app.router.add_route("*", "/{path_info:.*}", self._proxy_handler)
+        if not self._routes_configured:
+            self._app.router.add_get("/health", self._health_handler)
+            self._app.router.add_route("*", "/{path_info:.*}", self._proxy_handler)
+            self._routes_configured = True
 
         self._runner = web.AppRunner(self._app)
         await self._runner.setup()
@@ -114,12 +121,12 @@ class DetentProxy:
         self.session_dir.mkdir(parents=True, exist_ok=True)
         session_file = self.session_dir / "default.json"
 
-        state = {
-            "session_id": self._session_id,
-            "started_at": datetime.now(UTC).isoformat(),
-        }
+        state = SessionState(
+            session_id=self._session_id,
+            started_at=datetime.now(UTC).isoformat(),
+        )
 
-        session_file.write_text(json.dumps(state, indent=2))
+        session_file.write_text(state.model_dump_json(indent=2))
         logger.debug("[proxy] session state saved to %s", session_file)
 
     async def _forward_with_retry(
@@ -141,41 +148,58 @@ class DetentProxy:
             Exception if all retries exhausted
         """
         backoffs = [0.1, 0.2, 0.4]  # 100ms, 200ms, 400ms
+        tracer = get_tracer(__name__)
+        upstream_host = urlparse(url).hostname or "<unknown>"
 
         for attempt in range(self._max_retries):
-            try:
-                connector = aiohttp.TCPConnector(ssl=self._ssl_context)
-                async with (
-                    aiohttp.ClientSession(connector=connector) as session,
-                    session.request(
-                        method,
-                        url,
-                        data=body,
-                        headers=headers,
-                        timeout=aiohttp.ClientTimeout(
-                            connect=self.connect_timeout_s,
-                            total=None,  # no total timeout — LLM calls can stream for minutes
-                        ),
-                    ) as resp,
-                ):
-                    response_body = await resp.read()
-                    return resp.status, dict(resp.headers), response_body
-            except (TimeoutError, aiohttp.ClientError) as e:
-                if attempt < self._max_retries - 1:
-                    wait = backoffs[attempt]
-                    logger.warning(
-                        "[proxy] request failed (attempt %d/%d), retrying in %.1fs: %s",
-                        attempt + 1,
-                        self._max_retries,
-                        wait,
-                        e,
-                    )
-                    await asyncio.sleep(wait)
-                else:
-                    logger.error("[proxy] request failed after %d attempts: %s", self._max_retries, e)
-                    raise
+            attempt_number = attempt + 1
+            span_attrs = {
+                "detent.proxy.upstream_host": upstream_host,
+                "detent.proxy.method": method,
+                "detent.retry.attempt": attempt_number,
+            }
+            with tracer.start_as_current_span("detent.proxy.request", attributes=span_attrs) as span:
+                try:
+                    connector = aiohttp.TCPConnector(ssl=self._ssl_context)
+                    start = time.perf_counter()
+                    async with (
+                        aiohttp.ClientSession(connector=connector) as session,
+                        session.request(
+                            method,
+                            url,
+                            data=body,
+                            headers=headers,
+                            timeout=aiohttp.ClientTimeout(
+                                connect=self.connect_timeout_s,
+                                total=None,
+                            ),
+                        ) as resp,
+                    ):
+                        response_body = await resp.read()
+                        duration_ms = (time.perf_counter() - start) * 1000
+                        span.set_attribute("detent.proxy.status_code", resp.status)
+                        record_proxy_request(upstream_host, resp.status, duration_ms)
+                        return resp.status, dict(resp.headers), response_body
+                except (TimeoutError, aiohttp.ClientError) as e:
+                    record_proxy_retry(upstream_host, attempt_number)
+                    if attempt < self._max_retries - 1:
+                        wait = backoffs[attempt]
+                        logger.warning(
+                            "[proxy] request failed (attempt %d/%d), retrying in %.1fs: %s",
+                            attempt_number,
+                            self._max_retries,
+                            wait,
+                            e,
+                        )
+                        await asyncio.sleep(wait)
+                    else:
+                        logger.error(
+                            "[proxy] request failed after %d attempts: %s",
+                            self._max_retries,
+                            e,
+                        )
+                        raise
 
-        # This line should never be reached due to the raise above
         msg = "All retries exhausted"
         raise RuntimeError(msg)
 
@@ -196,26 +220,19 @@ class DetentProxy:
         }
 
         try:
+            coro = self._forward_with_retry(method, upstream_url, headers, body)
+            status, resp_headers, resp_body = await self._proxy_breaker.call(coro)
+            return web.Response(body=resp_body, status=status, headers=resp_headers)
+        except CircuitOpenError:
+            if self.strict_mode:
+                return web.json_response({"error": "proxy circuit breaker open"}, status=503)
             status, resp_headers, resp_body = await self._forward_with_retry(method, upstream_url, headers, body)
             return web.Response(body=resp_body, status=status, headers=resp_headers)
         except Exception as e:
             logger.error("[proxy] forwarding failed: %s", e)
             return web.json_response({"error": "Upstream connection failed"}, status=502)
 
-    def extract_tool_calls(self, response: dict[str, Any]) -> list[dict[str, Any]]:
-        """Extract tool use blocks from Anthropic API response.
-
-        Args:
-            response: Anthropic API response dict
-
-        Returns:
-            List of tool use blocks (empty if none)
-        """
-        tool_calls = []
-        content = response.get("content", [])
-
-        for block in content:
-            if isinstance(block, dict) and block.get("type") == "tool_use":
-                tool_calls.append(block)
-
-        return tool_calls
+    @property
+    def app(self) -> web.Application:
+        """Expose aiohttp app for hook adapter registration."""
+        return self._app

@@ -24,23 +24,30 @@ from __future__ import annotations
 __version__ = "0.1.0"
 
 from detent.adapters.base import AgentAdapter
-from detent.adapters.claude_code import ClaudeCodeAdapter
+from detent.adapters.hook.base import HookAdapter
+from detent.adapters.hook.gemini import GeminiAdapter
+from detent.adapters.hook.litellm import LiteLLMAdapter
+from detent.adapters.hook.openapi import OpenAPIAdapter
+from detent.adapters.http.base import HTTPProxyAdapter
+from detent.adapters.http.claude_code import ClaudeCodeAdapter
+from detent.adapters.http.codex import CodexAdapter
+from detent.adapters.http.cursor import CursorAdapter
 from detent.adapters.langgraph import LangGraphAdapter
 from detent.checkpoint.engine import CheckpointEngine
-from detent.config import DetentConfig, PipelineConfig, ProxyConfig, StageConfig
-from detent.feedback.synthesizer import (
-    EnrichedFinding,
-    FeedbackSynthesizer,
-    StructuredFeedback,
-)
+from detent.circuit_breaker import CircuitBreaker
+from detent.config import DetentConfig, PipelineConfig, ProxyConfig, StageConfig, TelemetryConfig
+from detent.feedback.schemas import EnrichedFinding, StructuredFeedback
+from detent.feedback.synthesizer import FeedbackSynthesizer
 from detent.ipc import IPCControlChannel
+from detent.ipc.schemas import IPCMessageType
 from detent.pipeline.pipeline import VerificationPipeline
 from detent.pipeline.result import Finding, VerificationResult
 from detent.proxy import DetentProxy, SessionManager
-from detent.proxy.types import DetentSessionConflictError, IPCMessageType
+from detent.proxy.types import DetentSessionConflictError
 from detent.schema import ActionType, AgentAction, RiskLevel
 from detent.stages.base import VerificationStage
 from detent.stages.lint import LintStage
+from detent.stages.security import SecurityStage
 from detent.stages.syntax import SyntaxStage
 from detent.stages.tests import TestsStage
 from detent.stages.typecheck import TypecheckStage
@@ -52,6 +59,7 @@ __all__ = [
     "ProxyConfig",
     "PipelineConfig",
     "StageConfig",
+    "TelemetryConfig",
     # Schema
     "AgentAction",
     "ActionType",
@@ -72,14 +80,23 @@ __all__ = [
     "EnrichedFinding",
     # Stages
     "VerificationStage",
+    "CircuitBreaker",
     "SyntaxStage",
     "LintStage",
+    "SecurityStage",
     "TypecheckStage",
     "TestsStage",
     # Adapters
     "AgentAdapter",
     "ClaudeCodeAdapter",
+    "CursorAdapter",
+    "CodexAdapter",
     "LangGraphAdapter",
+    "LiteLLMAdapter",
+    "GeminiAdapter",
+    "OpenAPIAdapter",
+    "HTTPProxyAdapter",
+    "HookAdapter",
     # Types
     "DetentSessionConflictError",
     "IPCMessageType",

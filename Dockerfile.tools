@@ -15,7 +15,7 @@
 FROM python:3.12-slim AS tools
 
 # Install uv for fast package installation
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /usr/local/bin/uv
 
 RUN groupadd -r detent && useradd -r -g detent detent
 
@@ -27,15 +27,31 @@ RUN uv pip install --system \
     mypy \
     pytest \
     pytest-asyncio \
-    tree-sitter \
-    bandit \
-    semgrep
+    tree-sitter>=0.23,<1 \
+    tree-sitter-python>=0.23,<1 \
+    tree-sitter-javascript>=0.23,<1 \
+    tree-sitter-typescript>=0.23,<1 \
+    bandit>=1.7 \
+    semgrep>=1.60
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g \
+    eslint \
+    typescript \
+    jest \
+    vitest \
+    @vitest/runner
 
 # Workspace mount point (project files to verify)
 RUN mkdir -p /workspace && chown detent:detent /workspace
 
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    NODE_PATH=/usr/lib/node_modules
 
 USER detent
 WORKDIR /workspace

@@ -20,7 +20,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -28,26 +27,12 @@ if TYPE_CHECKING:
     from detent.schema import AgentAction
     from detent.stages.base import VerificationStage
 
+from detent.config.languages import detect_language
+from detent.observability.metrics import record_pipeline_duration
+from detent.observability.tracer import get_tracer
 from detent.pipeline.result import Finding, VerificationResult
 
 logger = logging.getLogger(__name__)
-
-_EXTENSION_TO_LANGUAGE: dict[str, str] = {
-    ".py": "python",
-    ".ts": "typescript",
-    ".tsx": "typescript",
-    ".js": "javascript",
-    ".jsx": "javascript",
-    ".go": "go",
-    ".rs": "rust",
-    ".rb": "ruby",
-}
-
-
-def _detect_language(file_path: str) -> str:
-    """Detect language from file extension. Returns 'unknown' for unrecognized types."""
-    suffix = Path(file_path).suffix.lower()
-    return _EXTENSION_TO_LANGUAGE.get(suffix, "unknown")
 
 
 class VerificationPipeline:
@@ -81,7 +66,7 @@ class VerificationPipeline:
             if stage_cls is None:
                 logger.warning("[pipeline] unknown stage '%s'; skipping", stage_cfg.name)
                 continue
-            stages.append(stage_cls())
+            stages.append(stage_cls(stage_cfg))
         logger.info("[pipeline] built from config: %s", [s.name for s in stages])
         return cls(stages=stages, config=config.pipeline)
 
@@ -91,38 +76,51 @@ class VerificationPipeline:
         Filters stages by language support, runs them per config, and aggregates
         all findings. Returns stage="pipeline" in the result.
         """
-        start = time.perf_counter()
-        lang = _detect_language(action.file_path or "")
+        lang = detect_language(action.file_path or "")
         active = [s for s in self._stages if s.supports_language(lang)]
 
-        logger.info(
-            "[pipeline] running %d stage(s) for %s (%s)",
-            len(active),
-            action.file_path or "<unknown>",
-            lang,
-        )
+        tracer = get_tracer(__name__)
+        with tracer.start_as_current_span(
+            "detent.pipeline",
+            attributes={
+                "detent.file_path": action.file_path or "<unknown>",
+                "detent.language": lang,
+                "detent.stage_count": len(active),
+                "detent.parallel": self._config.parallel,
+            },
+        ):
+            start = time.perf_counter()
 
-        if not active:
-            logger.info("[pipeline] no applicable stages; passing")
-            return VerificationResult(
-                stage="pipeline",
-                passed=True,
-                findings=[],
-                duration_ms=(time.perf_counter() - start) * 1000,
+            logger.info(
+                "[pipeline] running %d stage(s) for %s (%s)",
+                len(active),
+                action.file_path or "<unknown>",
+                lang,
             )
 
-        if self._config.parallel:
-            collected = await self._run_parallel(action, active)
-        else:
-            collected = await self._run_sequential(action, active)
+            if not active:
+                logger.info("[pipeline] no applicable stages; passing")
+                result = VerificationResult(
+                    stage="pipeline",
+                    passed=True,
+                    findings=[],
+                    duration_ms=(time.perf_counter() - start) * 1000,
+                )
+            else:
+                if self._config.parallel:
+                    collected = await self._run_parallel(action, active)
+                else:
+                    collected = await self._run_sequential(action, active)
 
-        result = self._aggregate(collected, start)
-        logger.info(
-            "[pipeline] complete: passed=%s, %d finding(s) in %.1f ms",
-            result.passed,
-            len(result.findings),
-            result.duration_ms,
-        )
+                result = self._aggregate(collected, start)
+
+            logger.info(
+                "[pipeline] complete: passed=%s, %d finding(s) in %.1f ms",
+                result.passed,
+                len(result.findings),
+                result.duration_ms,
+            )
+        record_pipeline_duration(lang, result.passed, result.duration_ms)
         return result
 
     async def _run_sequential(
@@ -146,10 +144,6 @@ class VerificationPipeline:
         stages: list[VerificationStage],
     ) -> list[VerificationResult]:
         """Run all stages concurrently, applying fail-fast to collected results."""
-        # VerificationStage.run() catches all stage-level exceptions internally.
-        # This guard exists as a belt-and-suspenders safety net in case a future
-        # stage bypasses the base class. CancelledError is a BaseException and
-        # will still propagate (intentional — parent cancellation should not be swallowed).
         try:
             results = await asyncio.gather(*[s.run(action) for s in stages])
         except Exception as exc:
@@ -175,7 +169,6 @@ class VerificationPipeline:
             for r in collected:
                 truncated.append(r)
                 if r.has_errors:
-                    # Include the first error result so callers know which stage failed.
                     break
             return truncated
         return collected

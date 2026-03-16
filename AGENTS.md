@@ -99,15 +99,18 @@ Detent intercepts individual tool calls via agent-specific adapters before they 
 
 ## Agent Adapter Matrix
 
-| Agent                | Interception Mechanism                                        | v0.1 Scope |
-| -------------------- | ------------------------------------------------------------- | ---------- |
-| **Claude Code**      | `PreToolUse`/`PostToolUse` hooks + `ANTHROPIC_BASE_URL` proxy | ✅ P0      |
-| **LangGraph**        | `VerificationNode` inserted into graph + LangChain callback   | ✅ P0      |
-| **Cursor**           | `OPENAI_BASE_URL` override + MCP proxy                        | ❌ P1      |
-| **Aider**            | LiteLLM callback injection + `Coder` subclass                 | ❌ P1      |
-| **Cline / Roo Code** | MCP stdio proxy + `.clinerules`/hooks                         | ❌ P1      |
-| **OpenHands**        | Event stream subscription + REST API                          | ❌ P1      |
-| **Codex CLI**        | `OPENAI_BASE_URL` override + MCP proxy                        | ❌ P1      |
+| Agent                | Interception Mechanism                                        | Status |
+| -------------------- | ------------------------------------------------------------- | ------ |
+| **Claude Code**      | `PreToolUse`/`PostToolUse` hooks + HTTP proxy                 | ✅     |
+| **LangGraph**        | `VerificationNode` inserted into graph + LangChain callback   | ✅     |
+| **Cursor**           | OpenAI-compatible HTTP proxy adapter                          | ✅     |
+| **Codex CLI**        | OpenAI-compatible HTTP proxy adapter                          | ✅     |
+| **LiteLLM**          | Callback hook (observability-only; no rollback)               | ✅     |
+| **Gemini**           | HTTP hook adapter (`/hooks/gemini`)                           | ✅     |
+| **OpenAPI**          | Generic HTTP hook adapter (`/hooks/openapi`)                  | ✅     |
+| **Aider**            | LiteLLM callback injection + `Coder` subclass                 | ❌     |
+| **Cline / Roo Code** | MCP stdio proxy + `.clinerules`/hooks                         | ❌     |
+| **OpenHands**        | Event stream subscription + REST API                          | ❌     |
 
 ### Claude Code Adapter
 
@@ -207,7 +210,7 @@ Stages are composable and configured via `detent.yaml`. They run sequentially by
 
 | Stage                 | Tools                                                          |
 | --------------------- | -------------------------------------------------------------- |
-| **Security scanning** | Bandit, Semgrep (OWASP ruleset), Gitleaks                      |
+| **Security scanning** | Bandit + Semgrep (configurable rulesets)                       |
 | **Dependency audit**  | pip-audit, npm audit, hallucinated package detection           |
 | **Static analysis**   | Semgrep custom rules, configurable ruleset                     |
 | **Test generation**   | LLM-assisted test scaffold for uncovered code paths (optional) |
@@ -227,9 +230,18 @@ stages:
   - name: tests
     enabled: true
     timeout: 60s
-  - name: security # P1
-    enabled: false
-    tools: [bandit, semgrep]
+  - name: security
+    enabled: true
+    timeout: 30
+    options:
+      semgrep:
+        enabled: true
+        rulesets:
+          - p/python
+          - p/owasp-top-ten
+      bandit:
+        enabled: true
+        confidence: low
 
 policy: standard # strict | standard | permissive
 agent: claude-code # detected automatically by `detent init`
@@ -449,7 +461,11 @@ class MyAgentAdapter(AgentAdapter):
 ADAPTERS = {
     "claude-code": ClaudeCodeAdapter,
     "cursor": CursorAdapter,
+    "codex": CodexAdapter,
     "langgraph": LangGraphAdapter,
+    "litellm": LiteLLMAdapter,
+    "gemini": GeminiAdapter,
+    "openapi": OpenAPIAdapter,
     "my-agent": MyAgentAdapter,   # add here
 }
 ```
@@ -476,7 +492,6 @@ Located: `detent/proxy/http_proxy.py`
 
 **Key Methods:**
 - `start()` / `stop()` — server lifecycle
-- `extract_tool_calls(response)` — extract tool use from Anthropic format
 - `_forward_with_retry(...)` — forward with retry logic
 
 ### IPC Control Channel (`IPCControlChannel`)
@@ -632,7 +647,7 @@ async def run(self, action: AgentAction) -> VerificationResult:
 ### v1.0 — Production Ready (6 months)
 
 - All 7 agent adapters complete
-- Full security scanning pipeline (Bandit, Semgrep, Gitleaks)
+- Security scanning pipeline (Bandit + Semgrep; Gitleaks TBD)
 - Plugin system with entry point discovery
 - GitHub Actions integration
 - OpenTelemetry traces
@@ -775,7 +790,9 @@ from detent import (
     # Stages
     VerificationStage, SyntaxStage, LintStage, TypecheckStage, TestsStage,
     # Adapters
-    AgentAdapter, ClaudeCodeAdapter, LangGraphAdapter,
+    AgentAdapter, ClaudeCodeAdapter, CursorAdapter, CodexAdapter,
+    LangGraphAdapter, LiteLLMAdapter, GeminiAdapter, OpenAPIAdapter,
+    HTTPProxyAdapter, HookAdapter,
     # Types
     DetentSessionConflictError, IPCMessageType,
 )
@@ -796,5 +813,5 @@ Integration test:
 
 ---
 
-**Last Updated:** 2026-03-08
+**Last Updated:** 2026-03-14
 **Version:** 0.1.0

@@ -282,9 +282,9 @@ async def test_checkpoint_refs_tracked_per_session(
         assert result2.passed is True
 
         # Session should have tracked both checkpoints
-        assert len(session_manager._checkpoint_refs) == 2
-        assert "chk_before_write_000" in session_manager._checkpoint_refs
-        assert "chk_before_write_001" in session_manager._checkpoint_refs
+        assert len(session_manager._state.checkpoint_refs) == 2
+        assert "chk_before_write_000" in session_manager._state.checkpoint_refs
+        assert "chk_before_write_001" in session_manager._state.checkpoint_refs
     finally:
         await session_manager.end_session()
 

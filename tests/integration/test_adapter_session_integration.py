@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from detent.adapters.claude_code import ClaudeCodeAdapter
+from detent.adapters.http.claude_code import ClaudeCodeAdapter
 from detent.adapters.langgraph import LangGraphAdapter
 from detent.checkpoint.engine import CheckpointEngine
 from detent.config import PipelineConfig
@@ -449,9 +449,9 @@ async def test_multiple_tool_calls_in_sequence(
         assert result2.passed is True
 
         # Verify both checkpoints were created
-        assert len(session_manager._checkpoint_refs) == 2
-        assert session_manager._checkpoint_refs[0].startswith("chk_before_write_")
-        assert session_manager._checkpoint_refs[1].startswith("chk_before_write_")
+        assert len(session_manager._state.checkpoint_refs) == 2
+        assert session_manager._state.checkpoint_refs[0].startswith("chk_before_write_")
+        assert session_manager._state.checkpoint_refs[1].startswith("chk_before_write_")
 
     finally:
         await session_manager.end_session()

@@ -16,6 +16,6 @@
 """IPC control channel for adapter communication."""
 
 from detent.ipc.channel import IPCControlChannel
-from detent.proxy.types import IPCMessage, IPCMessageType
+from detent.ipc.schemas import IPCMessage, IPCMessageType
 
 __all__ = ["IPCControlChannel", "IPCMessage", "IPCMessageType"]

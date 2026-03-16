@@ -22,7 +22,10 @@ import logging
 import os
 from pathlib import Path
 
-from detent.checkpoint.savepoint import FileSnapshot, ShadowGit
+from detent.checkpoint.savepoint import ShadowGit
+from detent.checkpoint.schemas import FileSnapshot
+from detent.observability.metrics import record_savepoint_size
+from detent.observability.tracer import get_tracer
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +70,16 @@ class CheckpointEngine:
         async with self._lock:
             self._snapshots[ref] = snapshots
 
+        tracer = get_tracer(__name__)
+        with tracer.start_as_current_span(
+            "detent.checkpoint.savepoint",
+            attributes={
+                "checkpoint.ref": ref,
+                "checkpoint.file_count": len(snapshots),
+            },
+        ):
+            record_savepoint_size(len(snapshots))
+
         if self._shadow is not None:
             await self._shadow.commit(ref, snapshots)
 
@@ -95,22 +108,34 @@ class CheckpointEngine:
         if snapshots is None:
             raise KeyError(f"No savepoint found for ref '{ref}'")
 
-        for snap in snapshots:
-            path = Path(snap.path)
-            if snap.existed:
-                # Atomically restore: write to sibling tmp, then os.replace
-                tmp = path.with_suffix(path.suffix + ".detent-tmp")
-                tmp.parent.mkdir(parents=True, exist_ok=True)
-                tmp.write_bytes(snap.content)  # type: ignore[arg-type]
-                os.replace(tmp, path)
-                if snap.permissions is not None:
-                    os.chmod(path, snap.permissions)
-            else:
-                # File was created after savepoint — delete it
-                if path.exists():
-                    path.unlink()
+        tracer = get_tracer(__name__)
+        with tracer.start_as_current_span(
+            "detent.checkpoint.rollback",
+            attributes={
+                "checkpoint.ref": ref,
+                "checkpoint.restored_file_count": len(snapshots),
+            },
+        ):
+            for snap in snapshots:
+                path = Path(snap.path)
+                if snap.existed:
+                    # Atomically restore: write to sibling tmp, then os.replace
+                    tmp = path.with_suffix(path.suffix + ".detent-tmp")
+                    tmp.parent.mkdir(parents=True, exist_ok=True)
+                    tmp.write_bytes(snap.content)  # type: ignore[arg-type]
+                    os.replace(tmp, path)
+                    if snap.permissions is not None:
+                        os.chmod(path, snap.permissions)
+                else:
+                    # File was created after savepoint — delete it
+                    if path.exists():
+                        path.unlink()
 
-        logger.info("[checkpoint] rolled back to '%s' (%d file(s) restored)", ref, len(snapshots))
+            logger.info(
+                "[checkpoint] rolled back to '%s' (%d file(s) restored)",
+                ref,
+                len(snapshots),
+            )
 
     async def discard(self, ref: str) -> None:
         """Remove a savepoint from the registry.
