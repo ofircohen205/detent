@@ -22,7 +22,8 @@ import logging
 import os
 from pathlib import Path
 
-from detent.checkpoint.savepoint import FileSnapshot, ShadowGit
+from detent.checkpoint.savepoint import ShadowGit
+from detent.checkpoint.schemas import FileSnapshot
 from detent.observability.metrics import record_savepoint_size
 from detent.observability.tracer import get_tracer
 

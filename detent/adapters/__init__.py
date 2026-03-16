@@ -16,15 +16,15 @@
 """Adapter implementations for different AI agents."""
 
 from detent.adapters.base import AgentAdapter
-from detent.adapters.claude_code import ClaudeCodeAdapter
-from detent.adapters.codex import CodexAdapter
-from detent.adapters.cursor import CursorAdapter
-from detent.adapters.gemini import GeminiAdapter
-from detent.adapters.hook import HookAdapter
-from detent.adapters.http_proxy import HTTPProxyAdapter
+from detent.adapters.hook.base import HookAdapter
+from detent.adapters.hook.gemini import GeminiAdapter
+from detent.adapters.hook.litellm import LiteLLMAdapter
+from detent.adapters.hook.openapi import OpenAPIAdapter
+from detent.adapters.http.base import HTTPProxyAdapter
+from detent.adapters.http.claude_code import ClaudeCodeAdapter
+from detent.adapters.http.codex import CodexAdapter
+from detent.adapters.http.cursor import CursorAdapter
 from detent.adapters.langgraph import LangGraphAdapter
-from detent.adapters.litellm import LiteLLMAdapter
-from detent.adapters.openapi import OpenAPIAdapter
 
 ADAPTERS: dict[str, type[AgentAdapter]] = {
     "claude-code": ClaudeCodeAdapter,

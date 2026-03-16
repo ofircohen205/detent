@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from detent.adapters.claude_code import ClaudeCodeAdapter
+from detent.adapters.http.claude_code import ClaudeCodeAdapter
 from detent.adapters.langgraph import LangGraphAdapter
 from detent.checkpoint.engine import CheckpointEngine
 from detent.config import PipelineConfig

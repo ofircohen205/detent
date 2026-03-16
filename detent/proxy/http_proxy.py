@@ -18,7 +18,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import ssl
 import time
@@ -31,12 +30,12 @@ import certifi
 from aiohttp import web
 
 from detent.circuit_breaker import CircuitBreaker, CircuitOpenError
+from detent.config import ALLOWED_UPSTREAM_HOSTS
 from detent.observability.metrics import record_proxy_request, record_proxy_retry
 from detent.observability.tracer import get_tracer
+from detent.proxy.types import SessionState
 
 logger = logging.getLogger(__name__)
-
-_ALLOWED_UPSTREAM_HOSTS: frozenset[str] = frozenset({"api.anthropic.com", "api.openai.com"})
 
 
 class DetentProxy:
@@ -67,8 +66,8 @@ class DetentProxy:
         """
         self.port = port
         _host = urlparse(upstream_url).hostname or ""
-        if _host not in _ALLOWED_UPSTREAM_HOSTS:
-            raise ValueError(f"upstream_url host {_host!r} is not in allowlist: {sorted(_ALLOWED_UPSTREAM_HOSTS)}")
+        if _host not in ALLOWED_UPSTREAM_HOSTS:
+            raise ValueError(f"upstream_url host {_host!r} is not in allowlist: {sorted(ALLOWED_UPSTREAM_HOSTS)}")
         self.upstream_url = upstream_url
         self.connect_timeout_s = connect_timeout_s
         self.session_dir = Path(session_dir or ".detent/session")
@@ -122,12 +121,12 @@ class DetentProxy:
         self.session_dir.mkdir(parents=True, exist_ok=True)
         session_file = self.session_dir / "default.json"
 
-        state = {
-            "session_id": self._session_id,
-            "started_at": datetime.now(UTC).isoformat(),
-        }
+        state = SessionState(
+            session_id=self._session_id,
+            started_at=datetime.now(UTC).isoformat(),
+        )
 
-        session_file.write_text(json.dumps(state, indent=2))
+        session_file.write_text(state.model_dump_json(indent=2))
         logger.debug("[proxy] session state saved to %s", session_file)
 
     async def _forward_with_retry(

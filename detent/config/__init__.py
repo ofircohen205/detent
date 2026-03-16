@@ -31,6 +31,12 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_PROXY_HOST = "127.0.0.1"
 DEFAULT_PROXY_PORT = 7070
+
+# ─── Upstream hosts ──────────────────────────────────────────────────────────
+
+UPSTREAM_HOST_ANTHROPIC = "api.anthropic.com"
+UPSTREAM_HOST_OPENAI = "api.openai.com"
+ALLOWED_UPSTREAM_HOSTS: frozenset[str] = frozenset({UPSTREAM_HOST_ANTHROPIC, UPSTREAM_HOST_OPENAI})
 DEFAULT_IPC_TIMEOUT_MS = 4000
 DEFAULT_LOG_LEVEL = "INFO"
 DEFAULT_POLICY = "standard"

@@ -15,10 +15,7 @@
 
 """Feedback synthesis package."""
 
-from detent.feedback.synthesizer import (
-    EnrichedFinding,
-    FeedbackSynthesizer,
-    StructuredFeedback,
-)
+from detent.feedback.schemas import EnrichedFinding, StructuredFeedback
+from detent.feedback.synthesizer import FeedbackSynthesizer
 
 __all__ = ["EnrichedFinding", "FeedbackSynthesizer", "StructuredFeedback"]

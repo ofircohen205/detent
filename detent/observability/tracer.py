@@ -22,6 +22,8 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from detent.config import TelemetryConfig
 
 logger = logging.getLogger(__name__)
@@ -42,7 +44,7 @@ class _NoOpSpan:
 
 class _NoOpTracer:
     @contextmanager
-    def start_as_current_span(self, name: str, **kwargs: Any) -> _NoOpSpan:
+    def start_as_current_span(self, name: str, **kwargs: Any) -> Iterator[_NoOpSpan]:
         yield _NoOpSpan()
 
 
