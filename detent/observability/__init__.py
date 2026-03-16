@@ -35,7 +35,10 @@ def setup_telemetry(config: TelemetryConfig) -> None:
     if _initialized or not config.enabled:
         return
 
-    bundle = build_exporter(config)
+    try:
+        bundle = build_exporter(config)
+    except ImportError as exc:
+        raise ImportError("OpenTelemetry SDK not installed") from exc
     configure_tracer(config, bundle.span_exporter)
     configure_metrics(config, bundle.metric_exporter)
     _initialized = True

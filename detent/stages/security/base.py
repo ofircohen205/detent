@@ -213,11 +213,8 @@ class SecurityStage(VerificationStage):
         finally:
             await self._cleanup_process(proc)
 
-        if proc.returncode == 0:
-            return []
-
         stderr_text = stderr.decode("utf-8", errors="replace").strip()
-        if proc.returncode != 1:
+        if proc.returncode not in (0, 1):
             return [
                 Finding(
                     severity="warning",

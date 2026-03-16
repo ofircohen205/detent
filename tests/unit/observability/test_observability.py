@@ -12,7 +12,7 @@ def test_setup_telemetry_noop_when_disabled(monkeypatch):
     def _should_not_be_called(*args, **kwargs):
         raise AssertionError("build_exporter was called unexpectedly")
 
-    monkeypatch.setattr("detent.observability.exporter.build_exporter", _should_not_be_called)
+    monkeypatch.setattr("detent.observability.build_exporter", _should_not_be_called)
 
     setup_telemetry(TelemetryConfig(enabled=False))
 
@@ -23,7 +23,7 @@ def test_setup_telemetry_missing_sdk(monkeypatch):
     def _raise_import(*args, **kwargs):
         raise ImportError("missing dependency")
 
-    monkeypatch.setattr("detent.observability.exporter.build_exporter", _raise_import)
+    monkeypatch.setattr("detent.observability.build_exporter", _raise_import)
 
     with pytest.raises(ImportError, match="OpenTelemetry SDK not installed"):
         setup_telemetry(TelemetryConfig(enabled=True))
