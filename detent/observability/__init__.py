@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .exporter import build_exporter
+from .logging import configure_logging
 from .metrics import configure_metrics
 from .tracer import configure_tracer
 
@@ -26,6 +27,9 @@ if TYPE_CHECKING:
     from detent.config import TelemetryConfig
 
 _initialized = False
+
+
+__all__ = ["configure_logging", "setup_telemetry"]
 
 
 def setup_telemetry(config: TelemetryConfig) -> None:

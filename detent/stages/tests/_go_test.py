@@ -20,7 +20,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-import logging
+
+import structlog
 
 from detent.pipeline.result import Finding
 from detent.stages.languages._go import (
@@ -30,7 +31,7 @@ from detent.stages.languages._go import (
     find_module_root,
 )
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 async def run_test(file_path: str, stage_name: str, timeout: int) -> list[Finding]:

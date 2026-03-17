@@ -18,16 +18,17 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
 from pathlib import Path
+
+import structlog
 
 from detent.checkpoint.savepoint import ShadowGit
 from detent.checkpoint.schemas import FileSnapshot
 from detent.observability.metrics import record_savepoint_size
 from detent.observability.tracer import get_tracer
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 class CheckpointEngine:

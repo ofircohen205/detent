@@ -17,10 +17,10 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 import click
+import structlog
 import yaml
 from rich.prompt import Confirm, Prompt
 
@@ -29,7 +29,7 @@ from detent.config import DetentConfig, PipelineConfig, ProxyConfig, StageConfig
 from .app import main
 from .utils import console, create_session_dir, detect_agent
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 def init_interactive() -> None:

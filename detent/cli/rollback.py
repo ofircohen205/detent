@@ -18,9 +18,9 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 
 import click
+import structlog
 
 from detent.checkpoint.engine import CheckpointEngine
 
@@ -28,7 +28,7 @@ from .app import main
 from .session import SessionManager
 from .utils import console
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 async def do_rollback(

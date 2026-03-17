@@ -19,15 +19,16 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 from pathlib import Path
 from typing import Any, Literal
+
+import structlog
 
 from detent.config.languages import ESLINT_CONFIG_FILES
 from detent.pipeline.result import Finding
 from detent.stages._subprocess import cleanup_process as _cleanup
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 def _find_eslint_config(file_path: str) -> Path | None:

@@ -18,14 +18,15 @@
 from __future__ import annotations
 
 import json
-import logging
 from abc import abstractmethod
 from typing import Any
+
+import structlog
 
 from detent.adapters.base import AgentAdapter
 from detent.schema import ActionType, AgentAction, RiskLevel
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 class HTTPProxyAdapter(AgentAdapter):

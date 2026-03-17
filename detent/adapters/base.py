@@ -17,9 +17,10 @@
 
 from __future__ import annotations
 
-import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
+
+import structlog
 
 from detent.schema import ActionType
 
@@ -28,7 +29,7 @@ if TYPE_CHECKING:
     from detent.proxy.session import SessionManager
     from detent.schema import AgentAction
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 class AgentAdapter(ABC):

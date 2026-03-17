@@ -10,7 +10,7 @@ def test_run_json_output_is_valid_json(tmp_path):
     """--json flag should output valid JSON with expected fields."""
     from detent.cli import main
 
-    runner = CliRunner()
+    runner = CliRunner(mix_stderr=False)
     temp_file = tmp_path / "test.py"
     temp_file.write_text("x = 1")
 
@@ -42,7 +42,7 @@ def test_run_json_error_for_missing_file(tmp_path):
     from detent.cli import main
 
     missing = tmp_path / "missing.py"
-    runner = CliRunner()
+    runner = CliRunner(mix_stderr=False)
     result = runner.invoke(main, ["run", str(missing), "--json"])
 
     assert result.exit_code == 1
@@ -57,7 +57,7 @@ def test_run_json_includes_rollback_failed(tmp_path):
 
     temp_file = tmp_path / "test.py"
     temp_file.write_text("x = 1")
-    runner = CliRunner()
+    runner = CliRunner(mix_stderr=False)
 
     with (
         patch("detent.cli.run.DetentConfig") as mock_load,

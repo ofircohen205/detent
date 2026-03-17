@@ -17,17 +17,17 @@
 
 from __future__ import annotations
 
-import logging
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import structlog
 from rich.console import Console
 
 if TYPE_CHECKING:
     from detent.pipeline.result import VerificationResult
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 console = Console()
 
 

@@ -19,12 +19,13 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 from typing import Any, Literal
+
+import structlog
 
 from detent.pipeline.result import Finding
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 async def run_ruff(

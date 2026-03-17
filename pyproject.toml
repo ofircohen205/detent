@@ -1,6 +1,6 @@
 [project]
 name = "detent"
-version = "1.0.1"
+version = "1.0.2"
 description = "A verification runtime that intercepts AI coding agent file writes, runs them through a configurable verification pipeline, and rolls back atomically on failure."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -31,6 +31,7 @@ dependencies = [
     "tree-sitter-rust>=0.23,<1",
     "click>=8.1,<9",
     "rich>=13.7,<14",
+    "structlog>=24.0,<26",
     "tomli>=2.0; python_version < '3.11'",
 ]
 
