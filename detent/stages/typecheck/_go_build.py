@@ -19,8 +19,9 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import logging
 from pathlib import Path
+
+import structlog
 
 from detent.pipeline.result import Finding
 from detent.stages.languages._go import (
@@ -31,7 +32,7 @@ from detent.stages.languages._go import (
     find_module_root,
 )
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 async def run_build(file_path: str, content: str, stage_name: str, timeout: int) -> list[Finding]:

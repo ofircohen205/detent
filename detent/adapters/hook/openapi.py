@@ -17,13 +17,14 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
+
+import structlog
 
 from detent.adapters.hook.base import HookAdapter
 from detent.schema import ActionType, AgentAction, RiskLevel
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 if TYPE_CHECKING:
     from detent.proxy.session import SessionManager

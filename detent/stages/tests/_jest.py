@@ -19,13 +19,14 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 from pathlib import Path
+
+import structlog
 
 from detent.pipeline.result import Finding
 from detent.stages._subprocess import cleanup_process as _cleanup
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 def _detect_js_runner(file_path: str) -> str | None:

@@ -17,13 +17,14 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
+
+import structlog
 
 from detent.adapters.hook.base import HookAdapter
 from detent.schema import ActionType, AgentAction, RiskLevel
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 class GeminiAdapter(HookAdapter):

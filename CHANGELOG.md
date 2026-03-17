@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-03-17
+
+### Fixed
+
+- **Proxy `InvalidHTTPResponse`** — strip hop-by-hop headers (`Transfer-Encoding`, `Connection`, etc.) from upstream responses before forwarding; the proxy fully buffers the response body so chunked encoding is already decoded, but the stale headers caused Claude Code's HTTP client to raise `InvalidHTTPResponse`
+
+### Changed
+
+- **Logging** — replace stdlib `logging` with `structlog 24+` across all 46 source files; new `detent/observability/logging.py` exposes `configure_logging(level, json=False)` with console renderer by default and JSON lines for production; stdlib integration captures aiohttp and other third-party logs
+
 ## [1.0.1] - 2026-03-16
 
 ### Fixed

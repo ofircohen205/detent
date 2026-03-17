@@ -20,12 +20,13 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-import logging
 import os
 import tempfile
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
+
+import structlog
 
 from detent.config import StageConfig
 from detent.pipeline.result import Finding, VerificationResult
@@ -34,7 +35,7 @@ from detent.stages.base import VerificationStage, _validate_file_path
 if TYPE_CHECKING:
     from detent.schema import AgentAction
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 _SEMGREP_SEVERITY_MAP: dict[str, Literal["error", "warning", "info"]] = {
     "ERROR": "error",

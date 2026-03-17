@@ -20,14 +20,15 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-import logging
 import os
 import tempfile
 from typing import Any, Literal
 
+import structlog
+
 from detent.pipeline.result import Finding
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 _MYPY_SEVERITY_MAP: dict[str, Literal["error", "warning", "info"]] = {
     "error": "error",

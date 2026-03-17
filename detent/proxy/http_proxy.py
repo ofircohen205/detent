@@ -18,7 +18,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import ssl
 import time
 from datetime import UTC, datetime
@@ -27,6 +26,7 @@ from urllib.parse import urlparse
 
 import aiohttp
 import certifi
+import structlog
 from aiohttp import web
 
 from detent.circuit_breaker import CircuitBreaker, CircuitOpenError
@@ -35,7 +35,22 @@ from detent.observability.metrics import record_proxy_request, record_proxy_retr
 from detent.observability.tracer import get_tracer
 from detent.proxy.types import SessionState
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
+
+# Hop-by-hop headers must not be forwarded — the proxy fully buffers the body,
+# so chunked transfer encoding is already decoded and these headers are stale.
+_HOP_BY_HOP_RESPONSE_HEADERS = frozenset(
+    {
+        "connection",
+        "keep-alive",
+        "transfer-encoding",
+        "te",
+        "trailers",
+        "upgrade",
+        "proxy-authenticate",
+        "proxy-authorization",
+    }
+)
 
 
 class DetentProxy:
@@ -179,7 +194,10 @@ class DetentProxy:
                         duration_ms = (time.perf_counter() - start) * 1000
                         span.set_attribute("detent.proxy.status_code", resp.status)
                         record_proxy_request(upstream_host, resp.status, duration_ms)
-                        return resp.status, dict(resp.headers), response_body
+                        forwarded_headers = {
+                            k: v for k, v in resp.headers.items() if k.lower() not in _HOP_BY_HOP_RESPONSE_HEADERS
+                        }
+                        return resp.status, forwarded_headers, response_body
                 except (TimeoutError, aiohttp.ClientError) as e:
                     record_proxy_retry(upstream_host, attempt_number)
                     if attempt < self._max_retries - 1:

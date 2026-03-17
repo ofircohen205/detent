@@ -22,8 +22,9 @@ in v0.1.
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Literal
+
+import structlog
 
 from detent.feedback.schemas import EnrichedFinding, StructuredFeedback
 from detent.observability.tracer import get_tracer
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
     from detent.pipeline.result import Finding, VerificationResult
     from detent.schema import AgentAction
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 _SEVERITY_ORDER = {"error": 0, "warning": 1, "info": 2}
 

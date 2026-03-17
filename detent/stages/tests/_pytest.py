@@ -19,13 +19,14 @@ from __future__ import annotations
 
 import asyncio
 import glob as _glob
-import logging
 import sys
 from pathlib import Path
 
+import structlog
+
 from detent.pipeline.result import Finding
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 _MAX_WALK_DEPTH = 5
 _PASSING_EXIT_CODES = frozenset({0, 5})  # 0=all passed, 5=no tests collected

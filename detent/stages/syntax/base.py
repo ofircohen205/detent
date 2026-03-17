@@ -21,10 +21,10 @@ optional grammar does not break the stage for other languages.
 
 from __future__ import annotations
 
-import logging
 import time
 from typing import TYPE_CHECKING
 
+import structlog
 from tree_sitter import Language, Parser
 
 from detent.config.languages import detect_language
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 
     from detent.schema import AgentAction
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 # _GRAMMAR_MAP: language name -> tree-sitter Language
 # Missing grammars are silently absent; supports_language() returns False for them.
