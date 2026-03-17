@@ -17,14 +17,14 @@
 
 from __future__ import annotations
 
-import logging
 from abc import abstractmethod
 
+import structlog
 from aiohttp import web
 
 from detent.adapters.base import AgentAdapter
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 class HookAdapter(AgentAdapter):

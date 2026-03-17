@@ -18,16 +18,16 @@
 from __future__ import annotations
 
 import json
-import logging
 
 import click
+import structlog
 from rich.table import Table
 
 from .app import main
 from .session import SessionManager
 from .utils import console
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 def show_status(json_mode: bool = False, reset: bool = False) -> None:

@@ -20,12 +20,12 @@ from __future__ import annotations
 import asyncio
 import copy
 import json
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import click
+import structlog
 
 from detent.checkpoint.engine import CheckpointEngine
 from detent.config import DetentConfig
@@ -36,7 +36,7 @@ from .app import main
 from .session import SessionManager
 from .utils import _policy_allows, console
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 if TYPE_CHECKING:
     from detent.pipeline.result import VerificationResult

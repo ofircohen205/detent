@@ -20,14 +20,15 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+import structlog
 
 if TYPE_CHECKING:
     from detent.ipc.schemas import IPCMessage
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 class IPCControlChannel:

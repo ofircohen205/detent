@@ -18,16 +18,17 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import re
 from pathlib import Path
 from typing import Literal
+
+import structlog
 
 from detent.config.languages import TS_CONFIG_FILENAME
 from detent.pipeline.result import Finding
 from detent.stages._subprocess import cleanup_process as _cleanup
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 _TSC_PATTERN = re.compile(r"^(.+)\((\d+),(\d+)\): (error|warning) (TS\d+): (.+)$")
 

@@ -17,8 +17,9 @@
 
 from __future__ import annotations
 
-import logging
 import re
+
+import structlog
 
 from detent.pipeline.result import Finding
 from detent.stages.languages._rust import (
@@ -28,7 +29,7 @@ from detent.stages.languages._rust import (
     find_crate_root,
 )
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 _FAIL_RE = re.compile(r"^test\s+(\S+)\s+\.\.\.\s+FAILED$")
 

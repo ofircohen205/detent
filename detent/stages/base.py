@@ -17,10 +17,11 @@
 
 from __future__ import annotations
 
-import logging
 import time
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Literal
+
+import structlog
 
 from detent.circuit_breaker import CircuitBreaker, CircuitOpenError
 from detent.config.languages import detect_language
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
     from detent.config import StageConfig
     from detent.schema import AgentAction
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 def _validate_file_path(path: str) -> None:
@@ -102,7 +103,7 @@ class VerificationStage(ABC):
             except CircuitOpenError:
                 result = self._handle_open_circuit(action)
             except Exception as exc:
-                logger.error("[%s] unexpected error: %s", self.name, exc, exc_info=True)
+                logger.exception("[%s] unexpected error", self.name, exc=exc)
                 duration_ms = (time.perf_counter() - start) * 1000
                 result = VerificationResult(
                     stage=self.name,

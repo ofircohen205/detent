@@ -18,9 +18,10 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
 from typing import TYPE_CHECKING
+
+import structlog
 
 if TYPE_CHECKING:
     from detent.config import DetentConfig, PipelineConfig
@@ -32,7 +33,7 @@ from detent.observability.metrics import record_pipeline_duration
 from detent.observability.tracer import get_tracer
 from detent.pipeline.result import Finding, VerificationResult
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 class VerificationPipeline:
@@ -147,7 +148,7 @@ class VerificationPipeline:
         try:
             results = await asyncio.gather(*[s.run(action) for s in stages])
         except Exception as exc:
-            logger.error("[pipeline] gather failed: %s", exc, exc_info=True)
+            logger.exception("[pipeline] gather failed", exc=exc)
             return [
                 VerificationResult(
                     stage="pipeline",

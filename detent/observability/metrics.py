@@ -17,13 +17,14 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
+
+import structlog
 
 if TYPE_CHECKING:
     from detent.config import TelemetryConfig
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 _meter_provider: Any | None = None
 _meter: Any | None = None

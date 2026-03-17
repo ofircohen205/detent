@@ -17,15 +17,15 @@
 
 from __future__ import annotations
 
-import logging
 import os
 from pathlib import Path
 from typing import Any, Literal
 
+import structlog
 import yaml
 from pydantic import BaseModel, Field
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 # ─── Default values ──────────────────────────────────────────────────────────
 

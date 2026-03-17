@@ -38,7 +38,7 @@ def test_config_show_prints_yaml(tmp_path):
     """config show should pretty-print resolved config as YAML."""
     import yaml
 
-    runner = CliRunner()
+    runner = CliRunner(mix_stderr=False)
     config_file = tmp_path / "detent.yaml"
     config_file.write_text("policy: strict\n")
     result = runner.invoke(main, ["--config", str(config_file), "config", "show"])

@@ -18,18 +18,18 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import signal
 from contextlib import suppress
 
 import click
+import structlog
 
 from detent.config import DetentConfig
 from detent.proxy.http_proxy import DetentProxy
 
 from .app import main
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 async def _run_proxy() -> None:

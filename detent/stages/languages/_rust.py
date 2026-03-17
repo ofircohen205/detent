@@ -20,8 +20,9 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-import logging
 from pathlib import Path
+
+import structlog
 
 try:
     import tomllib
@@ -30,7 +31,7 @@ except ImportError:
 
 from detent.pipeline.result import Finding
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 def find_crate_root(file_path: str) -> tuple[Path, str] | None:

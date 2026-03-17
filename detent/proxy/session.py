@@ -18,9 +18,10 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
+
+import structlog
 
 if TYPE_CHECKING:
     from detent.checkpoint.engine import CheckpointEngine
@@ -35,7 +36,7 @@ from detent.observability.tracer import get_tracer
 from detent.pipeline.result import VerificationResult
 from detent.proxy.types import DetentSessionConflictError, SessionState
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 class SessionManager:

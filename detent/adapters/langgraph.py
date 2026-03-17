@@ -17,8 +17,9 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
+
+import structlog
 
 from detent.adapters.base import AgentAdapter
 from detent.schema import ActionType, AgentAction, RiskLevel
@@ -26,7 +27,7 @@ from detent.schema import ActionType, AgentAction, RiskLevel
 if TYPE_CHECKING:
     from detent.pipeline.result import VerificationResult
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 class LangGraphAdapter(AgentAdapter):

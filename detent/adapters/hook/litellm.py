@@ -18,17 +18,17 @@
 from __future__ import annotations
 
 import importlib
-import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+import structlog
 from aiohttp import web
 
 from detent.adapters.hook.base import HookAdapter
 from detent.ipc.schemas import IPCMessage, IPCMessageType
 from detent.schema import ActionType, AgentAction, RiskLevel
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 if TYPE_CHECKING:
     from detent.pipeline.result import VerificationResult

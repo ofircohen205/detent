@@ -19,15 +19,16 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 from typing import TYPE_CHECKING
+
+import structlog
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 from detent.checkpoint.schemas import FileSnapshot
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 _GIT_USER_EMAIL = "detent@localhost"
 _GIT_USER_NAME = "Detent"

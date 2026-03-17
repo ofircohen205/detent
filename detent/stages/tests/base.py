@@ -17,9 +17,10 @@
 
 from __future__ import annotations
 
-import logging
 import time
 from typing import TYPE_CHECKING
+
+import structlog
 
 from detent.config.languages import detect_language
 from detent.pipeline.result import VerificationResult
@@ -31,7 +32,7 @@ from detent.stages.tests import _jest, _pytest
 if TYPE_CHECKING:
     from detent.schema import AgentAction
 
-logger = logging.getLogger(__name__)
+logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 class TestsStage(VerificationStage):
