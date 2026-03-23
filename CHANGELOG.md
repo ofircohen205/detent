@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-03-23
+
+### Fixed
+
+- **Proxy `ZlibError`** — strip `Content-Encoding` and `Content-Length` from upstream responses before forwarding; aiohttp auto-decompresses gzip bodies on `resp.read()`, so forwarding `Content-Encoding: gzip` caused Claude Code to attempt a second decompression, resulting in `ZlibError`
+
 ## [1.0.2] - 2026-03-17
 
 ### Fixed
