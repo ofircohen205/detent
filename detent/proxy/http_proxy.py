@@ -49,6 +49,11 @@ _HOP_BY_HOP_RESPONSE_HEADERS = frozenset(
         "upgrade",
         "proxy-authenticate",
         "proxy-authorization",
+        # aiohttp auto-decompresses the response body on resp.read(), so these
+        # headers are stale and must be stripped to avoid double-decompression
+        # errors (e.g. ZlibError) in the downstream client.
+        "content-encoding",
+        "content-length",
     }
 )
 
@@ -124,7 +129,7 @@ class DetentProxy:
         self.is_running = False
         logger.info("[proxy] stopped")
 
-    async def _health_handler(self, request: web.Request) -> web.Response:
+    async def _health_handler(self, _request: web.Request) -> web.Response:
         """Handle GET /health."""
         return web.json_response({"status": "ok"})
 
