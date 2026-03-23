@@ -7,7 +7,7 @@ import aiohttp
 import pytest
 
 from detent.adapters.hook.openapi import OpenAPIAdapter
-from detent.proxy.http_proxy import DetentProxy
+from detent.proxy.http_proxy import _HOP_BY_HOP_RESPONSE_HEADERS, DetentProxy
 
 
 @pytest.mark.asyncio
@@ -89,3 +89,15 @@ async def test_proxy_creates_session_state_file(tmp_path):
     data = json.loads(session_file.read_text())
     assert data["session_id"] == "sess_test_123"
     assert "started_at" in data
+
+
+def test_hop_by_hop_headers_strips_content_encoding():
+    """content-encoding and content-length must be in the hop-by-hop strip set.
+
+    aiohttp auto-decompresses gzip response bodies on resp.read(), so forwarding
+    Content-Encoding: gzip causes the downstream client to attempt a second
+    decompression, resulting in ZlibError. content-length is also stale after
+    decompression since the body size changes.
+    """
+    assert "content-encoding" in _HOP_BY_HOP_RESPONSE_HEADERS
+    assert "content-length" in _HOP_BY_HOP_RESPONSE_HEADERS
