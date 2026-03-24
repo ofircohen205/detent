@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-03-24
+
+### Fixed
+
+- **HTTP proxy adapter wiring** — wire `detent proxy` to a live `SessionManager`, `VerificationPipeline`, IPC channel, and agent-specific HTTP adapter so Point 1 now observes tool intents and runs speculative verification instead of acting as a pure pass-through
+- **Claude Code response parsing** — parse Anthropic `content[].type == "tool_use"` responses in the HTTP adapter while preserving existing PreToolUse hook parsing
+- **Hook exception safety** — fail open with HTTP 200 on unexpected pipeline/result-handler exceptions so hook-based agent sessions are not broken by Detent internal errors
+
 ## [1.0.3] - 2026-03-23
 
 ### Fixed

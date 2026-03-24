@@ -87,6 +87,10 @@ Detent intercepts all LLM API traffic between the user/IDE and the agent, implem
 
 **What it sees:** Full tool call intent before any filesystem change.
 
+**Important:** Point 1 is observational only. The proxy can parse tool intent from
+LLM API responses and run speculative verification for visibility/IPC, but it does
+not block or rewrite the forwarded response. Enforcement remains Point 2.
+
 ### Point 2 — Tool Execution Layer (East-West)
 
 Detent intercepts individual tool calls via agent-specific adapters before they hit the filesystem. This is the enforcement layer.
@@ -506,11 +510,13 @@ Located: `detent/proxy/http_proxy.py`
 
 - Listens on `127.0.0.1:{DETENT_PROXY_PORT}` (default 7070)
 - Forwards requests transparently to upstream LLM API (`DETENT_PROXY_UPSTREAM`)
-- Extracts tool use blocks from Anthropic API responses before returning to client
+- Extracts tool use blocks from Anthropic/OpenAI-compatible API responses before returning to client
+- Runs speculative pipeline observation on parsed file-write intents when an HTTP adapter + session manager are wired
+- Never blocks or rewrites the forwarded response; all Point 1 observation is best-effort and non-fatal
 - Implements retry logic with exponential backoff (3 retries: 100ms, 200ms, 400ms)
 - Request timeout: `DETENT_PROXY_TIMEOUT_S` (default 5s)
 - Persists session state to `.detent/session/default.json`
-- Health endpoint: `GET /health` → `{"status": "ok", "session_id": "..."}`
+- Health endpoint: `GET /health` → `{"status": "ok"}`
 
 **Key Methods:**
 - `start()` / `stop()` — server lifecycle
@@ -836,5 +842,5 @@ Integration test:
 
 ---
 
-**Last Updated:** 2026-03-16
+**Last Updated:** 2026-03-24
 **Version:** 1.0.0

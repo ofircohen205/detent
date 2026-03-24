@@ -37,6 +37,10 @@ class HTTPProxyAdapter(AgentAdapter):
     def upstream_host(self) -> str:
         """Expected upstream host, e.g. api.anthropic.com or api.openai.com."""
 
+    @abstractmethod
+    async def intercept_response(self, resp_body: bytes) -> list[AgentAction]:
+        """Parse an LLM API response and return actionable tool calls."""
+
     def normalize_tool_call(self, raw_tool: dict[str, Any]) -> AgentAction | None:
         """Normalize a raw tool call dict to AgentAction.
 
@@ -94,10 +98,25 @@ class HTTPProxyAdapter(AgentAdapter):
 class OpenAICompatibleAdapter(HTTPProxyAdapter):
     """Shared intercept logic for OpenAI-compatible agents (Codex, Cursor, etc.)."""
 
-    async def intercept(self, raw_event: dict[str, Any]) -> AgentAction | None:
+    def _extract_tool_calls(self, raw_event: dict[str, Any]) -> list[AgentAction]:
         tool_calls = raw_event.get("choices", [{}])[0].get("message", {}).get("tool_calls", [])
+        actions: list[AgentAction] = []
         for tool_call in tool_calls:
             action = self.normalize_tool_call(tool_call)
+            if action is not None:
+                actions.append(action)
+        return actions
+
+    async def intercept(self, raw_event: dict[str, Any]) -> AgentAction | None:
+        for action in self._extract_tool_calls(raw_event):
             if action and action.action_type == ActionType.FILE_WRITE:
                 return action
         return None
+
+    async def intercept_response(self, resp_body: bytes) -> list[AgentAction]:
+        try:
+            raw_event = json.loads(resp_body)
+        except json.JSONDecodeError:
+            logger.warning("[%s] failed to parse response body as JSON", self.agent_name)
+            return []
+        return self._extract_tool_calls(raw_event)

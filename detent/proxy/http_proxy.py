@@ -22,6 +22,7 @@ import ssl
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 import aiohttp
@@ -34,6 +35,10 @@ from detent.config import ALLOWED_UPSTREAM_HOSTS
 from detent.observability.metrics import record_proxy_request, record_proxy_retry
 from detent.observability.tracer import get_tracer
 from detent.proxy.types import SessionState
+
+if TYPE_CHECKING:
+    from detent.adapters.http.base import HTTPProxyAdapter
+    from detent.proxy.session import SessionManager
 
 logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
@@ -72,6 +77,8 @@ class DetentProxy:
         session_dir: Path | str | None = None,
         ssl_context: ssl.SSLContext | None = None,
         strict_mode: bool = False,
+        session_manager: SessionManager | None = None,
+        http_adapter: HTTPProxyAdapter | None = None,
     ) -> None:
         """Initialize HTTP proxy.
 
@@ -100,6 +107,8 @@ class DetentProxy:
         self._session_lock = asyncio.Lock()
         self._routes_configured = False
         self.strict_mode = strict_mode
+        self._session_manager = session_manager
+        self._http_adapter = http_adapter
         self._proxy_breaker = CircuitBreaker(name="proxy")
         if ssl_context is not None:
             self._ssl_context = ssl_context
@@ -245,15 +254,37 @@ class DetentProxy:
         try:
             coro = self._forward_with_retry(method, upstream_url, headers, body)
             status, resp_headers, resp_body = await self._proxy_breaker.call(coro)
+            if self._session_manager and self._http_adapter and method == "POST" and status == 200:
+                await self._observe_response(resp_body)
             return web.Response(body=resp_body, status=status, headers=resp_headers)
         except CircuitOpenError:
             if self.strict_mode:
                 return web.json_response({"error": "proxy circuit breaker open"}, status=503)
             status, resp_headers, resp_body = await self._forward_with_retry(method, upstream_url, headers, body)
+            if self._session_manager and self._http_adapter and method == "POST" and status == 200:
+                await self._observe_response(resp_body)
             return web.Response(body=resp_body, status=status, headers=resp_headers)
         except Exception as e:
             logger.error("[proxy] forwarding failed: %s", e)
             return web.json_response({"error": "Upstream connection failed"}, status=502)
+
+    async def _observe_response(self, resp_body: bytes) -> None:
+        """Point 1 is observational only and never alters the forwarded response."""
+        if self._http_adapter is None or self._session_manager is None:
+            return
+
+        try:
+            actions = await self._http_adapter.intercept_response(resp_body)
+            for action in actions:
+                if not action.is_file_write:
+                    continue
+                if not self._session_manager.is_active:
+                    continue
+                if not action.session_id:
+                    action.session_id = self._session_manager.session_id or ""
+                await self._session_manager.observe_tool_call(action)
+        except Exception as e:
+            logger.error("[proxy] observation failed (non-fatal): %s", e)
 
     @property
     def app(self) -> web.Application:
