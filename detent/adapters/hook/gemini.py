@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 import structlog
@@ -39,6 +40,9 @@ class GeminiAdapter(HookAdapter):
         return "/hooks/gemini"
 
     async def intercept(self, raw_event: dict[str, Any]) -> AgentAction | None:
+        start_time = time.perf_counter()
+        self._log_intercept_start("hook_event")
+
         if "tool_name" in raw_event:
             tool_name = raw_event.get("tool_name") or ""
             tool_input = raw_event.get("tool_input") or {}
@@ -48,6 +52,8 @@ class GeminiAdapter(HookAdapter):
             tool_input = payload.get("args") or payload.get("arguments") or {}
 
         if not tool_name:
+            self._log_intercept_error("missing_field", "tool_name required")
+            self._log_intercept_end(None)
             raise ValueError("Missing tool_name in Gemini payload")
 
         tool_call_id = raw_event.get("tool_call_id") or raw_event.get("id") or ""
@@ -57,7 +63,7 @@ class GeminiAdapter(HookAdapter):
         if tool_name not in self._ACTION_TYPE_MAP:
             logger.warning("[gemini] unknown tool %s, treating as mcp_tool", tool_name)
 
-        return AgentAction(
+        action = AgentAction(
             action_type=action_type,
             agent=self.agent_name,
             tool_name=tool_name,
@@ -67,3 +73,8 @@ class GeminiAdapter(HookAdapter):
             checkpoint_ref="",
             risk_level=RiskLevel.MEDIUM,
         )
+
+        self._log_intercept_end(action)
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+        self._log_performance("intercept", elapsed_ms)
+        return action
