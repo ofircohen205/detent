@@ -221,6 +221,13 @@ class ClaudeCodeAdapter(HTTPProxyAdapter):
         result: VerificationResult,
     ) -> dict[str, Any]:
         """Return hook response with allow/deny permission decision."""
+        start_time = time.perf_counter()
+        self._log_result_handling_start(action)
+
         allow = result.passed or not any(f.severity == "error" for f in result.findings)
         decision = "allow" if allow else "deny"
+
+        self._log_result_handling_end(action_allowed=allow)
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+        self._log_performance("handle_verification_result", elapsed_ms)
         return {"hookSpecificOutput": {"permissionDecision": decision}}
