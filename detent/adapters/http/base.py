@@ -98,13 +98,85 @@ class HTTPProxyAdapter(AgentAdapter):
 class OpenAICompatibleAdapter(HTTPProxyAdapter):
     """Shared intercept logic for OpenAI-compatible agents (Codex, Cursor, etc.)."""
 
-    def _extract_tool_calls(self, raw_event: dict[str, Any]) -> list[AgentAction]:
+    _RESPONSES_API_TOOL_TYPES = frozenset({"function_call", "custom_tool_call", "mcp_call"})
+
+    def _coerce_tool_input(self, raw_input: Any, tool_name: str) -> dict[str, Any]:
+        if isinstance(raw_input, dict):
+            return raw_input
+        if isinstance(raw_input, str):
+            try:
+                parsed = json.loads(raw_input)
+            except json.JSONDecodeError:
+                logger.warning("[%s] failed to parse tool payload for %s", self.agent_name, tool_name)
+                return {"raw_input": raw_input}
+            if isinstance(parsed, dict):
+                return parsed
+            return {"value": parsed}
+        return {}
+
+    def normalize_tool_call(self, raw_tool: dict[str, Any]) -> AgentAction | None:
+        if "function" in raw_tool:
+            tool_name = raw_tool.get("function", {}).get("name", "") or ""
+            raw_input = raw_tool.get("function", {}).get("arguments", {})
+        else:
+            tool_name = raw_tool.get("name") or raw_tool.get("tool_name") or ""
+            raw_input = raw_tool.get("arguments")
+            if raw_input is None:
+                raw_input = raw_tool.get("input")
+            if raw_input is None:
+                raw_input = raw_tool.get("tool_input")
+
+        if not tool_name:
+            logger.debug("[%s] tool call missing name; skipping", self.agent_name)
+            return None
+
+        tool_input = self._coerce_tool_input(raw_input, tool_name)
+        action_type = self._ACTION_TYPE_MAP.get(tool_name, ActionType.MCP_TOOL)
+        if tool_name not in self._ACTION_TYPE_MAP:
+            logger.warning("[%s] unknown tool %s, treating as mcp_tool", self.agent_name, tool_name)
+
+        tool_call_id = raw_tool.get("call_id") or raw_tool.get("id") or raw_tool.get("tool_call_id") or ""
+        session_id = raw_tool.get("session_id", "")
+
+        return AgentAction(
+            action_type=action_type,
+            agent=self.agent_name,
+            tool_name=tool_name,
+            tool_input=tool_input,
+            tool_call_id=tool_call_id,
+            session_id=session_id,
+            checkpoint_ref="",
+            risk_level=RiskLevel.MEDIUM,
+        )
+
+    def _extract_chat_completions_tool_calls(self, raw_event: dict[str, Any]) -> list[AgentAction]:
         tool_calls = raw_event.get("choices", [{}])[0].get("message", {}).get("tool_calls", [])
         actions: list[AgentAction] = []
         for tool_call in tool_calls:
             action = self.normalize_tool_call(tool_call)
             if action is not None:
                 actions.append(action)
+        return actions
+
+    def _extract_responses_api_tool_calls(self, raw_event: dict[str, Any]) -> list[AgentAction]:
+        output = raw_event.get("output", [])
+        if not isinstance(output, list):
+            return []
+
+        actions: list[AgentAction] = []
+        for item in output:
+            if not isinstance(item, dict):
+                continue
+            if item.get("type") not in self._RESPONSES_API_TOOL_TYPES:
+                continue
+            action = self.normalize_tool_call(item)
+            if action is not None:
+                actions.append(action)
+        return actions
+
+    def _extract_tool_calls(self, raw_event: dict[str, Any]) -> list[AgentAction]:
+        actions = self._extract_chat_completions_tool_calls(raw_event)
+        actions.extend(self._extract_responses_api_tool_calls(raw_event))
         return actions
 
     async def intercept(self, raw_event: dict[str, Any]) -> AgentAction | None:

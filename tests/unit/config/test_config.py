@@ -37,6 +37,7 @@ class TestProxyConfig:
         proxy = ProxyConfig()
         assert proxy.host == "127.0.0.1"
         assert proxy.port == 7070
+        assert proxy.upstream_url is None
 
 
 class TestDetentConfig:

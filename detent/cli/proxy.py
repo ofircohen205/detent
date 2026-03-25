@@ -22,12 +22,13 @@ import signal
 import uuid
 from contextlib import suppress
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 import click
 import structlog
 
 from detent.checkpoint.engine import CheckpointEngine
-from detent.config import UPSTREAM_HOST_ANTHROPIC, DetentConfig
+from detent.config import UPSTREAM_HOST_ANTHROPIC, UPSTREAM_HOST_OPENAI, DetentConfig
 from detent.ipc.channel import IPCControlChannel
 from detent.pipeline.pipeline import VerificationPipeline
 from detent.proxy.http_proxy import DetentProxy
@@ -40,16 +41,37 @@ from .app import main
 
 logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
+_DEFAULT_UPSTREAM_HOSTS: dict[str, str] = {
+    "claude-code": UPSTREAM_HOST_ANTHROPIC,
+    "codex": UPSTREAM_HOST_OPENAI,
+    "cursor": UPSTREAM_HOST_OPENAI,
+}
 
-def _build_http_adapter(config: DetentConfig, session_manager: SessionManager) -> HTTPProxyAdapter | None:
-    from detent.adapters import ADAPTERS
-    from detent.adapters.http.base import HTTPProxyAdapter
 
-    adapter_cls = ADAPTERS.get(config.agent)
-    if adapter_cls is None or not issubclass(adapter_cls, HTTPProxyAdapter):
-        logger.warning("[proxy] no HTTP adapter for agent %r", config.agent)
-        return None
-    return adapter_cls(session_manager=session_manager)
+def _resolve_proxy_upstream(config: DetentConfig) -> str:
+    if config.proxy.upstream_url:
+        return config.proxy.upstream_url
+
+    upstream_host = _DEFAULT_UPSTREAM_HOSTS.get(config.agent, UPSTREAM_HOST_ANTHROPIC)
+    if config.agent not in _DEFAULT_UPSTREAM_HOSTS:
+        logger.warning("[proxy] no default upstream for agent %r; falling back to Anthropic", config.agent)
+    return f"https://{upstream_host}"
+
+
+def _build_http_adapter(
+    config: DetentConfig, session_manager: SessionManager, upstream_url: str
+) -> HTTPProxyAdapter | None:
+    from detent.adapters.http.providers import AnthropicResponseAdapter, OpenAIResponseAdapter
+
+    upstream_host = urlparse(upstream_url).hostname or ""
+    observed_agent = config.agent
+    if upstream_host == UPSTREAM_HOST_ANTHROPIC:
+        return AnthropicResponseAdapter(session_manager=session_manager, observed_agent=observed_agent)
+    if upstream_host == UPSTREAM_HOST_OPENAI:
+        return OpenAIResponseAdapter(session_manager=session_manager, observed_agent=observed_agent)
+
+    logger.warning("[proxy] no response adapter for upstream host %r", upstream_host)
+    return None
 
 
 async def _run_proxy() -> None:
@@ -67,12 +89,12 @@ async def _run_proxy() -> None:
     session_id = f"proxy_{uuid.uuid4().hex[:8]}"
     await session_manager.start_session(session_id=session_id)
 
-    http_adapter = _build_http_adapter(config, session_manager)
-    upstream_host = http_adapter.upstream_host if http_adapter is not None else UPSTREAM_HOST_ANTHROPIC
+    upstream_url = _resolve_proxy_upstream(config)
+    http_adapter = _build_http_adapter(config, session_manager, upstream_url)
 
     proxy = DetentProxy(
         port=config.proxy.port,
-        upstream_url=f"https://{upstream_host}",
+        upstream_url=upstream_url,
         strict_mode=config.strict_mode,
         session_manager=session_manager,
         http_adapter=http_adapter,

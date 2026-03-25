@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2026-03-25
+
+### Fixed
+
+- **Codex Responses API parsing** — support OpenAI Responses API `output[]` tool items (`function_call`, `custom_tool_call`, `mcp_call`) in addition to chat-completions `tool_calls`
+- **Cursor provider-aware Point 1 parsing** — select the HTTP response parser from `proxy.upstream_url` or the resolved upstream host instead of hard-wiring Point 1 parsing to `agent=cursor`
+- **Gemini CLI hook compatibility** — parse Gemini CLI `BeforeTool` payloads using `tool_name` and `tool_input`, while retaining compatibility with older `functionCall` payloads
+
 ## [1.0.4] - 2026-03-24
 
 ### Fixed

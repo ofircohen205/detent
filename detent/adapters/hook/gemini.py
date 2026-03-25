@@ -28,7 +28,7 @@ logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 class GeminiAdapter(HookAdapter):
-    """Adapter for Gemini FunctionCall hook payloads."""
+    """Adapter for Gemini CLI BeforeTool hook payloads."""
 
     @property
     def agent_name(self) -> str:
@@ -39,12 +39,17 @@ class GeminiAdapter(HookAdapter):
         return "/hooks/gemini"
 
     async def intercept(self, raw_event: dict[str, Any]) -> AgentAction | None:
-        payload = raw_event.get("functionCall") or raw_event.get("function_call") or raw_event
-        tool_name = payload.get("name") or raw_event.get("tool_name") or ""
+        if "tool_name" in raw_event:
+            tool_name = raw_event.get("tool_name") or ""
+            tool_input = raw_event.get("tool_input") or {}
+        else:
+            payload = raw_event.get("functionCall") or raw_event.get("function_call") or raw_event
+            tool_name = payload.get("name") or ""
+            tool_input = payload.get("args") or payload.get("arguments") or {}
+
         if not tool_name:
             raise ValueError("Missing tool_name in Gemini payload")
 
-        tool_input = payload.get("args") or payload.get("arguments") or raw_event.get("tool_input") or {}
         tool_call_id = raw_event.get("tool_call_id") or raw_event.get("id") or ""
         session_id = raw_event.get("session_id", "")
 

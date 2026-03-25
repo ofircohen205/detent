@@ -91,6 +91,7 @@ class ProxyConfig(BaseModel):
 
     host: str = Field(default=DEFAULT_PROXY_HOST, description="Bind address")
     port: int = Field(default=DEFAULT_PROXY_PORT, description="Listen port")
+    upstream_url: str | None = Field(default=None, description="Explicit upstream LLM API base URL")
 
 
 class TelemetryConfig(BaseModel):
