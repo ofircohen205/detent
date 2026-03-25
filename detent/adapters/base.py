@@ -144,13 +144,13 @@ class AgentAdapter(ABC):
             action_type=action.action_type.value,
         )
 
-    def _log_result_handling_end(self, allowed: bool) -> None:
+    def _log_result_handling_end(self, action_allowed: bool) -> None:
         """Log verification decision.
 
         Args:
-            allowed: Whether the action was allowed (True) or denied (False)
+            action_allowed: Whether the action was allowed (True) or denied (False)
         """
-        decision = "allowing" if allowed else "denying"
+        decision = "allowing" if action_allowed else "denying"
         logger.info(
             "%s execution",
             decision,

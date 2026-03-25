@@ -115,7 +115,7 @@ def test_log_result_handling_start(adapter, capsys):
 
 def test_log_result_handling_end_allowed(adapter, capsys):
     """Test _log_result_handling_end logs INFO when allowed."""
-    adapter._log_result_handling_end(allowed=True)
+    adapter._log_result_handling_end(action_allowed=True)
     captured = capsys.readouterr()
 
     assert "allowing execution" in captured.out
@@ -124,7 +124,7 @@ def test_log_result_handling_end_allowed(adapter, capsys):
 
 def test_log_result_handling_end_denied(adapter, capsys):
     """Test _log_result_handling_end logs INFO when denied."""
-    adapter._log_result_handling_end(allowed=False)
+    adapter._log_result_handling_end(action_allowed=False)
     captured = capsys.readouterr()
 
     assert "denying execution" in captured.out
