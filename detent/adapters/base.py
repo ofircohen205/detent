@@ -86,3 +86,87 @@ class AgentAdapter(ABC):
         Default behavior is a no-op allow decision.
         """
         return {}
+
+    def _log_intercept_start(self, event_type: str) -> None:
+        """Log adapter entry with event type.
+
+        Args:
+            event_type: Type of event being intercepted (e.g., 'tool_call')
+        """
+        logger.debug(
+            "intercepting %s",
+            event_type,
+            agent=self.agent_name,
+        )
+
+    def _log_intercept_end(self, action: AgentAction | None) -> None:
+        """Log action created or skipped.
+
+        Args:
+            action: The created AgentAction, or None if skipped
+        """
+        if action is None:
+            logger.debug("action skipped", agent=self.agent_name)
+        else:
+            logger.debug(
+                "action created",
+                agent=self.agent_name,
+                tool_name=action.tool_name,
+                tool_call_id=action.tool_call_id,
+                action_type=action.action_type.value,
+            )
+
+    def _log_intercept_error(self, error_type: str, reason: str) -> None:
+        """Log parsing/validation failures.
+
+        Args:
+            error_type: Type of error (e.g., 'missing_field', 'json_decode')
+            reason: Human-readable explanation
+        """
+        logger.warning(
+            "intercept error",
+            agent=self.agent_name,
+            error_type=error_type,
+            reason=reason,
+        )
+
+    def _log_result_handling_start(self, action: AgentAction) -> None:
+        """Log verification result handling entry.
+
+        Args:
+            action: The action being handled
+        """
+        logger.debug(
+            "handling verification result",
+            agent=self.agent_name,
+            tool_name=action.tool_name,
+            tool_call_id=action.tool_call_id,
+            action_type=action.action_type.value,
+        )
+
+    def _log_result_handling_end(self, allowed: bool) -> None:
+        """Log verification decision.
+
+        Args:
+            allowed: Whether the action was allowed (True) or denied (False)
+        """
+        decision = "allowing" if allowed else "denying"
+        logger.info(
+            "%s execution",
+            decision,
+            agent=self.agent_name,
+        )
+
+    def _log_performance(self, operation: str, duration_ms: float) -> None:
+        """Log execution time for an operation.
+
+        Args:
+            operation: Name of the operation (e.g., 'intercept')
+            duration_ms: Duration in milliseconds
+        """
+        logger.debug(
+            "%s completed in %.1fms",
+            operation,
+            duration_ms,
+            agent=self.agent_name,
+        )
