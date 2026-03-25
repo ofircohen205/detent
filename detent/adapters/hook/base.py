@@ -71,6 +71,10 @@ class HookAdapter(AgentAdapter):
             logger.debug("[%s] hook event skipped (no actionable tool)", self.agent_name)
             return web.json_response({"status": "skipped"})
 
-        result = await self.session_manager.intercept_tool_call(action)
-        output = await self.handle_verification_result(action, result)
-        return web.json_response(output or {})
+        try:
+            result = await self.session_manager.intercept_tool_call(action)
+            output = await self.handle_verification_result(action, result)
+            return web.json_response(output or {})
+        except Exception as e:
+            logger.error("[%s] intercept_tool_call raised unexpectedly: %s", self.agent_name, e)
+            return web.json_response({"status": "error", "detail": "Detent internal error"})

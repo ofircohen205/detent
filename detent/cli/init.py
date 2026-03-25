@@ -22,7 +22,6 @@ from pathlib import Path
 import click
 import structlog
 import yaml
-from rich.prompt import Confirm, Prompt
 
 from detent.config import DetentConfig, PipelineConfig, ProxyConfig, StageConfig
 
@@ -40,16 +39,16 @@ def init_interactive() -> None:
     detected_agent = detect_agent()
     console.print(f"Detected agent: [yellow]{detected_agent}[/yellow]")
 
-    agent_choice = Prompt.ask(
+    agent_choice = click.prompt(
         "Is this correct?",
-        choices=["Y", "n"],
+        type=click.Choice(["Y", "n"], case_sensitive=False),
         default="Y",
     )
 
     if agent_choice == "n":
-        agent = Prompt.ask(
+        agent = click.prompt(
             "Select agent",
-            choices=["claude-code", "langgraph", "cursor", "aider"],
+            type=click.Choice(["claude-code", "langgraph", "cursor", "aider"], case_sensitive=False),
             default="claude-code",
         )
     else:
@@ -61,13 +60,13 @@ def init_interactive() -> None:
     console.print("  2. [bold]standard[/bold] - P0 stages enabled, warnings allowed")
     console.print("  3. [bold]permissive[/bold] - syntax only, others as warnings")
 
-    policy_choice = Prompt.ask("Enter choice", choices=["1", "2", "3"], default="2")
+    policy_choice = click.prompt("Enter choice", type=click.Choice(["1", "2", "3"]), default="2")
     policy_map = {"1": "strict", "2": "standard", "3": "permissive"}
     policy = policy_map[policy_choice]
 
     # Optional settings
-    parallel = Confirm.ask("Enable parallel execution?", default=False)
-    fail_fast = Confirm.ask("Enable fail-fast?", default=True)
+    parallel = click.confirm("Enable parallel execution?", default=False)
+    fail_fast = click.confirm("Enable fail-fast?", default=True)
 
     # Create config
     stages = [

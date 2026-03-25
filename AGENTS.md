@@ -83,9 +83,13 @@ AI Agent (Claude Code / Cursor / Aider / etc.)
 
 Detent intercepts all LLM API traffic between the user/IDE and the agent, implemented as an HTTP reverse proxy. When the agent's LLM response contains tool calls (file writes, bash execution), Detent sees them before the agent executes them.
 
-**Mechanism:** Set `ANTHROPIC_BASE_URL` (Claude Code) or `OPENAI_BASE_URL` (Cursor, Codex CLI) to route through Detent's proxy.
+**Mechanism:** Set `ANTHROPIC_BASE_URL` (Claude Code) or `OPENAI_BASE_URL` (Cursor, Codex CLI) to route through Detent's proxy. Point 1 response parsing is selected from the resolved upstream provider, not from the configured agent name.
 
 **What it sees:** Full tool call intent before any filesystem change.
+
+**Important:** Point 1 is observational only. The proxy can parse tool intent from
+LLM API responses and run speculative verification for visibility/IPC, but it does
+not block or rewrite the forwarded response. Enforcement remains Point 2.
 
 ### Point 2 — Tool Execution Layer (East-West)
 
@@ -104,8 +108,8 @@ Detent intercepts individual tool calls via agent-specific adapters before they 
 | Agent           | Interception Mechanism                        | Module                          | Status |
 | --------------- | --------------------------------------------- | ------------------------------- | ------ |
 | **Claude Code** | `PreToolUse`/`PostToolUse` hooks + HTTP proxy | `adapters/http/claude_code.py`  | ✅     |
-| **Cursor**      | OpenAI-compatible HTTP proxy adapter          | `adapters/http/cursor.py`       | ✅     |
-| **Codex CLI**   | OpenAI-compatible HTTP proxy adapter          | `adapters/http/codex.py`        | ✅     |
+| **Cursor**      | Provider-aware HTTP proxy adapter (`OpenAI` + `Anthropic` upstreams) | `adapters/http/cursor.py`       | ✅     |
+| **Codex CLI**   | OpenAI-compatible HTTP proxy adapter with Responses API parsing | `adapters/http/codex.py`        | ✅     |
 
 **Hook adapters** (preToolUse/callback hooks):
 
@@ -147,6 +151,12 @@ Claude Code's `PreToolUse` hook receives the full proposed file content as JSON 
   }
 }
 ```
+
+### Gemini Adapter
+
+Gemini CLI's `BeforeTool` hook posts a JSON payload with `tool_name` and `tool_input`
+before a tool executes. Detent normalizes that shape directly and retains a fallback
+for older `functionCall` / `function_call`-style payloads when present.
 
 ### LangGraph Adapter (VerificationNode)
 
@@ -506,11 +516,15 @@ Located: `detent/proxy/http_proxy.py`
 
 - Listens on `127.0.0.1:{DETENT_PROXY_PORT}` (default 7070)
 - Forwards requests transparently to upstream LLM API (`DETENT_PROXY_UPSTREAM`)
-- Extracts tool use blocks from Anthropic API responses before returning to client
+- Extracts tool use blocks from Anthropic/OpenAI-compatible API responses before returning to client
+- Selects the Point 1 response parser from the configured upstream host (`proxy.upstream_url`) or the agent fallback
+- Supports OpenAI chat-completions `tool_calls` and OpenAI Responses API `output[]` tool items for Codex/OpenAI-compatible clients
+- Runs speculative pipeline observation on parsed file-write intents when an HTTP adapter + session manager are wired
+- Never blocks or rewrites the forwarded response; all Point 1 observation is best-effort and non-fatal
 - Implements retry logic with exponential backoff (3 retries: 100ms, 200ms, 400ms)
 - Request timeout: `DETENT_PROXY_TIMEOUT_S` (default 5s)
 - Persists session state to `.detent/session/default.json`
-- Health endpoint: `GET /health` → `{"status": "ok", "session_id": "..."}`
+- Health endpoint: `GET /health` → `{"status": "ok"}`
 
 **Key Methods:**
 - `start()` / `stop()` — server lifecycle
@@ -565,6 +579,10 @@ DETENT_IPC_SOCKET=.detent/run/control.sock
 DETENT_IPC_TIMEOUT_MS=4000
 DETENT_SESSION_DIR=.detent/session
 ```
+
+`detent.yaml` may also set `proxy.upstream_url` explicitly when the agent name alone
+is not enough to determine the provider. This is how Cursor can target Anthropic vs
+OpenAI correctly. Google-backed Cursor traffic is not covered in v1.0.5.
 
 ### Testing
 
@@ -836,5 +854,5 @@ Integration test:
 
 ---
 
-**Last Updated:** 2026-03-16
+**Last Updated:** 2026-03-25
 **Version:** 1.0.0

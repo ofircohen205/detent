@@ -21,7 +21,6 @@ import json
 
 import click
 import structlog
-from rich.table import Table
 
 from .app import main
 from .session import SessionManager
@@ -64,24 +63,20 @@ def show_status(json_mode: bool = False, reset: bool = False) -> None:
         console.print("[yellow]No checkpoints yet. Run 'detent run <file>' first.[/yellow]")
         return
 
-    table = Table(title=f"Detent Session {session['session_id']}")
-    table.add_column("Checkpoint", style="cyan")
-    table.add_column("File", style="magenta")
-    table.add_column("Status", style="green")
-    table.add_column("Stage", style="blue")
-    table.add_column("Created", style="yellow")
-
+    click.echo(f"Detent Session {session['session_id']}")
+    click.echo("Checkpoint | File | Status | Stage | Created")
     for chk in session["checkpoints"]:
-        status_color = "green" if chk["status"] == "created" else "yellow"
-        table.add_row(
-            chk["ref"],
-            chk["file"],
-            f"[{status_color}]{chk['status']}[/{status_color}]",
-            chk.get("stage", "-"),
-            chk["created_at"],
+        click.echo(
+            " | ".join(
+                [
+                    chk["ref"],
+                    chk["file"],
+                    chk["status"],
+                    chk.get("stage", "-"),
+                    chk["created_at"],
+                ]
+            )
         )
-
-    console.print(table)
 
 
 @main.command()

@@ -21,7 +21,7 @@ and rolls back atomically if the code fails.
 
 from __future__ import annotations
 
-__version__ = "1.0.3"
+__version__ = "1.0.5"
 
 from detent.adapters.base import AgentAdapter
 from detent.adapters.hook.base import HookAdapter

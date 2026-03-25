@@ -220,6 +220,93 @@ class SessionManager:
                 duration_ms=0.0,
             )
 
+    async def observe_tool_call(self, action: AgentAction | None) -> VerificationResult:
+        """Observe a tool intent without enforcing checkpoint or rollback behavior.
+
+        Point 1 (HTTP proxy) only sees model intent from the LLM response body.
+        It cannot block or modify execution, so this path runs the pipeline
+        speculatively and emits IPC notifications without creating savepoints.
+        """
+        if action is None:
+            logger.debug("[session] no action to observe; skipping pipeline")
+            return VerificationResult(
+                stage="session",
+                passed=True,
+                findings=[],
+                duration_ms=0.0,
+            )
+        if self._state is None:
+            logger.warning("[session] tool intent observed but no active session")
+            return VerificationResult(
+                stage="session",
+                passed=False,
+                findings=[],
+                duration_ms=0.0,
+            )
+
+        if not action.session_id:
+            action.session_id = self.session_id or ""
+
+        tracer = get_tracer(__name__)
+        span_attrs = {
+            "detent.session_id": self.session_id,
+            "detent.tool_call_id": action.tool_call_id,
+            "detent.action_type": action.action_type,
+            "detent.agent": action.agent,
+            "detent.risk_level": action.risk_level.value,
+            "detent.file_path": action.file_path or "<unknown>",
+            "detent.observational": True,
+        }
+
+        try:
+            with tracer.start_as_current_span("detent.tool_intent", attributes=span_attrs) as span:
+                await self.ipc_channel.send_message(
+                    IPCMessage(
+                        type=IPCMessageType.TOOL_INTERCEPTED,
+                        data={
+                            "tool_call_id": action.tool_call_id,
+                            "action": action.model_dump(),
+                            "mode": "observation",
+                        },
+                        timestamp=datetime.now(UTC).isoformat(),
+                    )
+                )
+
+                result = await self.pipeline.run(action)
+
+                span.set_attribute("detent.tool_call.passed", result.passed)
+                record_tool_call(action.agent, action.action_type.value, result.passed)
+
+                logger.info(
+                    "[session] observational verification %s for tool %s",
+                    "passed" if result.passed else "failed",
+                    action.tool_name,
+                )
+
+                await self.ipc_channel.send_message(
+                    IPCMessage(
+                        type=IPCMessageType.VERIFICATION_RESULT,
+                        data={
+                            "tool_call_id": action.tool_call_id,
+                            "status": "observed",
+                            "passed": result.passed,
+                            "checkpoint_ref": "",
+                            "mode": "observation",
+                        },
+                        timestamp=datetime.now(UTC).isoformat(),
+                    )
+                )
+
+                return result
+        except Exception as e:
+            logger.error("[session] observational tool verification failed: %s", e)
+            return VerificationResult(
+                stage="session",
+                passed=False,
+                findings=[],
+                duration_ms=0.0,
+            )
+
     async def _on_verification_pass(
         self,
         action: AgentAction,

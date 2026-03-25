@@ -13,10 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Claude Code adapter for PreToolUse hook integration."""
+"""Claude Code adapter for hook and Anthropic response integration."""
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -84,6 +85,27 @@ class ClaudeCodeAdapter(HTTPProxyAdapter):
         )
 
         return action
+
+    async def intercept_response(self, resp_body: bytes) -> list[AgentAction]:
+        """Parse an Anthropic API response body for tool_use content blocks."""
+        try:
+            data = json.loads(resp_body)
+        except json.JSONDecodeError:
+            logger.warning("[claude-code] failed to parse response body as JSON")
+            return []
+
+        content = data.get("content", [])
+        if not isinstance(content, list):
+            return []
+
+        actions: list[AgentAction] = []
+        for item in content:
+            if not isinstance(item, dict) or item.get("type") != "tool_use":
+                continue
+            action = self.normalize_tool_call(item)
+            if action is not None:
+                actions.append(action)
+        return actions
 
     async def handle_verification_result(
         self,
