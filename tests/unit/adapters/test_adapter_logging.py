@@ -138,3 +138,69 @@ def test_log_performance(adapter, capsys):
 
     assert "intercept completed in 2.5ms" in captured.out
     assert "[debug" in captured.out
+
+
+@pytest.fixture
+def http_adapter(mock_session_manager):
+    """Create a concrete HTTPProxyAdapter subclass for testing."""
+    from detent.adapters.http.base import HTTPProxyAdapter
+
+    class TestHTTPAdapter(HTTPProxyAdapter):
+        @property
+        def agent_name(self) -> str:
+            return "test-http"
+
+        @property
+        def upstream_host(self) -> str:
+            return "https://api.anthropic.com"
+
+        async def intercept(self, raw_event):
+            return None
+
+        async def intercept_response(self, resp_body: bytes):
+            return []
+
+    return TestHTTPAdapter(mock_session_manager)
+
+
+def test_log_http_intercept(http_adapter, capsys):
+    """Test _log_http_intercept logs HTTP request details."""
+    http_adapter._log_http_intercept("POST", "/v1/messages")
+    captured = capsys.readouterr()
+
+    assert "intercepting HTTP request" in captured.out
+    assert "POST" in captured.out
+    assert "/v1/messages" in captured.out
+    assert "test-http" in captured.out
+    assert "[debug" in captured.out
+
+
+def test_log_response_parse_start_json(http_adapter, capsys):
+    """Test _log_response_parse_start detects JSON content type."""
+    http_adapter._log_response_parse_start("application/json")
+    captured = capsys.readouterr()
+
+    assert "parsing response as JSON" in captured.out
+    assert "test-http" in captured.out
+    assert "application/json" in captured.out
+    assert "[debug" in captured.out
+
+
+def test_log_response_parse_start_sse(http_adapter, capsys):
+    """Test _log_response_parse_start detects SSE content type."""
+    http_adapter._log_response_parse_start("text/event-stream")
+    captured = capsys.readouterr()
+
+    assert "parsing response as SSE" in captured.out
+    assert "test-http" in captured.out
+    assert "[debug" in captured.out
+
+
+def test_log_response_parse_end(http_adapter, capsys):
+    """Test _log_response_parse_end logs tool call count."""
+    http_adapter._log_response_parse_end(3)
+    captured = capsys.readouterr()
+
+    assert "parsed 3 tool_use blocks from response" in captured.out
+    assert "test-http" in captured.out
+    assert "[debug" in captured.out
