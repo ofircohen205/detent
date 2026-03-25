@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import importlib
+import time
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -65,9 +66,14 @@ class LiteLLMAdapter(HookAdapter):
             litellm.callbacks.remove(self)
 
     async def intercept(self, raw_event: dict[str, Any]) -> AgentAction | None:
+        start_time = time.perf_counter()
+        self._log_intercept_start("hook_event")
+
         tool_name = raw_event.get("tool_name", "")
         tool_input = raw_event.get("tool_input")
         if not tool_name or tool_input is None:
+            self._log_intercept_error("missing_field", "tool_name and tool_input required")
+            self._log_intercept_end(None)
             raise ValueError("Missing required fields: tool_name, tool_input")
 
         tool_call_id = raw_event.get("tool_call_id", "")
@@ -77,7 +83,7 @@ class LiteLLMAdapter(HookAdapter):
         if tool_name not in self._ACTION_TYPE_MAP:
             logger.warning("[litellm] unknown tool %s, treating as mcp_tool", tool_name)
 
-        return AgentAction(
+        action = AgentAction(
             action_type=action_type,
             agent=self.agent_name,
             tool_name=tool_name,
@@ -87,6 +93,11 @@ class LiteLLMAdapter(HookAdapter):
             checkpoint_ref="",
             risk_level=RiskLevel.MEDIUM,
         )
+
+        self._log_intercept_end(action)
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+        self._log_performance("intercept", elapsed_ms)
+        return action
 
     async def _observe_action(self, action: AgentAction) -> VerificationResult | None:
         try:
