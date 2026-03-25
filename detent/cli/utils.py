@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Shared utilities: detect_agent(), create_session_dir(), _policy_allows(), console, logger."""
+"""Shared utilities: detect_agent(), create_session_dir(), _policy_allows(), and logger."""
 
 from __future__ import annotations
 
@@ -21,14 +21,42 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import click
 import structlog
-from rich.console import Console
 
 if TYPE_CHECKING:
     from detent.pipeline.result import VerificationResult
 
 logger: structlog.stdlib.BoundLogger = structlog.get_logger()
-console = Console()
+
+
+class CLIConsole:
+    """Small wrapper matching the subset of Rich Console used by the CLI."""
+
+    def print(self, message: object = "") -> None:
+        click.echo(self._strip_markup(str(message)))
+
+    def _strip_markup(self, value: str) -> str:
+        replacements = {
+            "[cyan]": "",
+            "[/cyan]": "",
+            "[yellow]": "",
+            "[/yellow]": "",
+            "[green]": "",
+            "[/green]": "",
+            "[bold]": "",
+            "[/bold]": "",
+            "[magenta]": "",
+            "[/magenta]": "",
+            "[blue]": "",
+            "[/blue]": "",
+        }
+        for old, new in replacements.items():
+            value = value.replace(old, new)
+        return value
+
+
+console = CLIConsole()
 
 
 def detect_agent() -> str:
