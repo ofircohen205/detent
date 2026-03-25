@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -54,27 +55,22 @@ class LangGraphAdapter(AgentAdapter):
         Returns:
             Normalized AgentAction
         """
+        start_time = time.perf_counter()
+        self._log_intercept_start("tool_call")
+
         tool_name = raw_event.get("tool_name", "")
         tool_input = raw_event.get("tool_input", {})
         tool_call_id = raw_event.get("tool_call_id", "")
 
         if not tool_name:
-            logger.debug("[langgraph] tool call missing name; skipping")
+            self._log_intercept_error("missing_field", "tool_name required")
+            self._log_intercept_end(None)
             return None
 
         action_type = self._ACTION_TYPE_MAP.get(tool_name, ActionType.MCP_TOOL)
 
         if tool_name not in self._ACTION_TYPE_MAP:
-            logger.warning(
-                "[langgraph] unknown tool %s, treating as mcp_tool",
-                tool_name,
-            )
-        else:
-            logger.debug(
-                "[langgraph] intercepted %s tool call %s",
-                tool_name,
-                tool_call_id,
-            )
+            self._log_intercept_error("unknown_tool", f"unknown tool {tool_name!r}, treating as mcp_tool")
 
         action = AgentAction(
             action_type=action_type,
@@ -87,6 +83,9 @@ class LangGraphAdapter(AgentAdapter):
             risk_level=RiskLevel.MEDIUM,
         )
 
+        self._log_intercept_end(action)
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+        self._log_performance("intercept", elapsed_ms)
         return action
 
     async def handle_verification_result(
@@ -95,6 +94,13 @@ class LangGraphAdapter(AgentAdapter):
         result: VerificationResult,
     ) -> dict[str, Any]:
         """Return allow/deny metadata for result."""
+        start_time = time.perf_counter()
+        self._log_result_handling_start(action)
+
         allow = result.passed or not any(f.severity == "error" for f in result.findings)
         decision = "allow" if allow else "deny"
+
+        self._log_result_handling_end(action_allowed=allow)
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+        self._log_performance("handle_verification_result", elapsed_ms)
         return {"permissionDecision": decision}
