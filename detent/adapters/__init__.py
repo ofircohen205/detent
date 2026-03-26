@@ -17,34 +17,29 @@
 
 from detent.adapters.base import AgentAdapter
 from detent.adapters.hook.base import HookAdapter
+from detent.adapters.hook.claude_code import ClaudeCodeHookAdapter
+from detent.adapters.hook.codex import CodexHookAdapter
 from detent.adapters.hook.gemini import GeminiAdapter
-from detent.adapters.hook.litellm import LiteLLMAdapter
-from detent.adapters.hook.openapi import OpenAPIAdapter
 from detent.adapters.http.base import HTTPProxyAdapter
 from detent.adapters.http.claude_code import ClaudeCodeAdapter
 from detent.adapters.http.codex import CodexAdapter
-from detent.adapters.http.cursor import CursorAdapter
 from detent.adapters.langgraph import LangGraphAdapter
 
 ADAPTERS: dict[str, type[AgentAdapter]] = {
     "claude-code": ClaudeCodeAdapter,
-    "cursor": CursorAdapter,
     "codex": CodexAdapter,
     "langgraph": LangGraphAdapter,
-    "litellm": LiteLLMAdapter,
     "gemini": GeminiAdapter,
-    "openapi": OpenAPIAdapter,
 }
 
 __all__ = [
     "AgentAdapter",
     "ClaudeCodeAdapter",
-    "CursorAdapter",
+    "ClaudeCodeHookAdapter",
     "CodexAdapter",
+    "CodexHookAdapter",
     "LangGraphAdapter",
-    "LiteLLMAdapter",
     "GeminiAdapter",
-    "OpenAPIAdapter",
     "HTTPProxyAdapter",
     "HookAdapter",
     "ADAPTERS",

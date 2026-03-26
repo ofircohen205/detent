@@ -26,7 +26,7 @@ import yaml
 from detent.config import DetentConfig, PipelineConfig, ProxyConfig, StageConfig
 
 from .app import main
-from .utils import console, create_session_dir, detect_agent
+from .utils import configure_claude_code_hook, configure_codex_hook, console, create_session_dir, detect_agent
 
 logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
@@ -48,7 +48,7 @@ def init_interactive() -> None:
     if agent_choice == "n":
         agent = click.prompt(
             "Select agent",
-            type=click.Choice(["claude-code", "langgraph", "cursor", "aider"], case_sensitive=False),
+            type=click.Choice(["claude-code", "codex", "gemini", "langgraph"], case_sensitive=False),
             default="claude-code",
         )
     else:
@@ -105,6 +105,18 @@ def init_interactive() -> None:
 
     console.print("\n[green]✓ Created detent.yaml[/green]")
     console.print("[green]✓ Created .detent/session/[/green]")
+
+    if agent == "claude-code":
+        if configure_claude_code_hook(port=config.proxy.port):
+            console.print("[green]✓ Configured Claude Code PreToolUse hook (.claude/settings.json)[/green]")
+        else:
+            console.print("[yellow]⚠ Could not write Claude Code hook — add it manually (see docs)[/yellow]")
+    elif agent == "codex":
+        if configure_codex_hook(port=config.proxy.port):
+            console.print("[green]✓ Configured Codex hook (.codex/instructions.md)[/green]")
+        else:
+            console.print("[yellow]⚠ Could not write Codex hook — add it manually (see docs)[/yellow]")
+
     console.print("[cyan]Ready to run: detent run <file>[/cyan]\n")
 
 
@@ -141,6 +153,10 @@ def init_non_interactive(force: bool = False) -> None:
     create_session_dir()
     console.print("[green]✓ Created detent.yaml[/green]")
     console.print("[green]✓ Created .detent/session/[/green]")
+    if agent == "claude-code":
+        configure_claude_code_hook(port=config.proxy.port)
+    elif agent == "codex":
+        configure_codex_hook(port=config.proxy.port)
 
 
 @main.command()
