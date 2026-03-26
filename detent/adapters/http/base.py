@@ -41,6 +41,32 @@ class HTTPProxyAdapter(AgentAdapter):
     async def intercept_response(self, resp_body: bytes) -> list[AgentAction]:
         """Parse an LLM API response and return actionable tool calls."""
 
+    def _log_response_parse_start(self, content_type: str) -> None:
+        """Log response parsing entry at DEBUG level.
+
+        Args:
+            content_type: Content-Type header value
+        """
+        parse_type = "SSE" if "event-stream" in content_type else "JSON"
+        logger.debug(
+            "parsing response as %s",
+            parse_type,
+            agent=self.agent_name,
+            content_type=content_type,
+        )
+
+    def _log_response_parse_end(self, action_count: int) -> None:
+        """Log tool calls extracted from response at DEBUG level.
+
+        Args:
+            action_count: Number of tool_use blocks parsed
+        """
+        logger.debug(
+            "parsed %d tool_use blocks from response",
+            action_count,
+            agent=self.agent_name,
+        )
+
     def normalize_tool_call(self, raw_tool: dict[str, Any]) -> AgentAction | None:
         """Normalize a raw tool call dict to AgentAction.
 

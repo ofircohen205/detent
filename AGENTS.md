@@ -9,15 +9,16 @@ This document provides a comprehensive guide to the Detent system architecture: 
 1. [Overview](#overview)
 2. [Architecture: Two Interception Points](#architecture-two-interception-points)
 3. [Agent Adapter Matrix](#agent-adapter-matrix)
-4. [Checkpoint Engine & Rollback](#checkpoint-engine--rollback)
-5. [Verification Pipeline](#verification-pipeline)
-6. [Feedback Synthesis Engine](#feedback-synthesis-engine)
-7. [Normalized Action Schema](#normalized-action-schema)
-8. [Python SDK](#python-sdk)
-9. [Adding New Verification Stages](#adding-new-verification-stages)
-10. [Adding New Agent Adapters](#adding-new-agent-adapters)
-11. [Testing Stages & Adapters](#testing-stages--adapters)
-12. [Development Standards](#development-standards)
+4. [Using Hooks vs Proxy](#using-hooks-vs-proxy)
+5. [Checkpoint Engine & Rollback](#checkpoint-engine--rollback)
+6. [Verification Pipeline](#verification-pipeline)
+7. [Feedback Synthesis Engine](#feedback-synthesis-engine)
+8. [Normalized Action Schema](#normalized-action-schema)
+9. [Python SDK](#python-sdk)
+10. [Adding New Verification Stages](#adding-new-verification-stages)
+11. [Adding New Agent Adapters](#adding-new-agent-adapters)
+12. [Testing Stages & Adapters](#testing-stages--adapters)
+13. [Development Standards](#development-standards)
 
 ---
 
@@ -95,7 +96,7 @@ not block or rewrite the forwarded response. Enforcement remains Point 2.
 
 Detent intercepts individual tool calls via agent-specific adapters before they hit the filesystem. This is the enforcement layer.
 
-**Mechanism:** Agent-specific (PreToolUse hooks, MCP proxy, LiteLLM callbacks, event stream subscriptions — see Adapter Matrix below).
+**Mechanism:** Agent-specific — PreToolUse hooks (Claude Code, Codex, Gemini), VerificationNode (LangGraph). See Adapter Matrix below.
 
 **What it does:** Intercepts, verifies, then allows / blocks-and-rolls-back / modifies the call.
 
@@ -103,27 +104,26 @@ Detent intercepts individual tool calls via agent-specific adapters before they 
 
 ## Agent Adapter Matrix
 
-**HTTP adapters** (interception via API base URL override):
+**HTTP adapters** (Point 1 — observational, API base URL override):
 
-| Agent           | Interception Mechanism                        | Module                          | Status |
-| --------------- | --------------------------------------------- | ------------------------------- | ------ |
-| **Claude Code** | `PreToolUse`/`PostToolUse` hooks + HTTP proxy | `adapters/http/claude_code.py`  | ✅     |
-| **Cursor**      | Provider-aware HTTP proxy adapter (`OpenAI` + `Anthropic` upstreams) | `adapters/http/cursor.py`       | ✅     |
-| **Codex CLI**   | OpenAI-compatible HTTP proxy adapter with Responses API parsing | `adapters/http/codex.py`        | ✅     |
+| Agent           | Upstream                  | Module                         | Point |
+| --------------- | ------------------------- | ------------------------------ | ----- |
+| **Claude Code** | `api.anthropic.com`       | `adapters/http/claude_code.py` | 1     |
+| **Codex CLI**   | `api.openai.com`          | `adapters/http/codex.py`       | 1     |
 
-**Hook adapters** (preToolUse/callback hooks):
+**Hook adapters** (Point 2 — enforcement, pre-execution interception):
 
-| Agent       | Interception Mechanism                              | Module                        | Status |
-| ----------- | --------------------------------------------------- | ----------------------------- | ------ |
-| **Gemini**  | HTTP hook adapter (`/hooks/gemini`)                 | `adapters/hook/gemini.py`     | ✅     |
-| **LiteLLM** | Callback hook (observability-only; no rollback)     | `adapters/hook/litellm.py`    | ✅     |
-| **OpenAPI** | Generic HTTP hook adapter (`/hooks/openapi`)        | `adapters/hook/openapi.py`    | ✅     |
+| Agent           | Hook mechanism                             | Endpoint              | Module                          |
+| --------------- | ------------------------------------------ | --------------------- | ------------------------------- |
+| **Claude Code** | `PreToolUse` hook (stdin JSON → exit code) | `/hooks/claude-code`  | `adapters/hook/claude_code.py`  |
+| **Codex CLI**   | Pre-exec hook (OpenAI-style JSON payload)  | `/hooks/codex`        | `adapters/hook/codex.py`        |
+| **Gemini CLI**  | `BeforeTool` hook (POST JSON)              | `/hooks/gemini`       | `adapters/hook/gemini.py`       |
 
-**Graph adapters**:
+**Graph adapters** (Point 2 — enforcement via graph node):
 
-| Agent        | Interception Mechanism                                      | Module                  | Status |
-| ------------ | ----------------------------------------------------------- | ----------------------- | ------ |
-| **LangGraph** | `VerificationNode` inserted into graph + LangChain callback | `adapters/langgraph.py` | ✅     |
+| Agent        | Interception Mechanism                                      | Module                  |
+| ------------ | ----------------------------------------------------------- | ----------------------- |
+| **LangGraph** | `VerificationNode` inserted into agent graph               | `adapters/langgraph.py` |
 
 **Planned adapters**:
 
@@ -133,24 +133,180 @@ Detent intercepts individual tool calls via agent-specific adapters before they 
 | **Cline / Roo Code** | MCP stdio proxy + `.clinerules`/hooks         | ❌     |
 | **OpenHands**        | Event stream subscription + REST API          | ❌     |
 
-### Claude Code Adapter
+---
 
-Claude Code's `PreToolUse` hook receives the full proposed file content as JSON on stdin before any disk write. Detent's hook can:
+## Using Hooks vs Proxy
 
-- **Block** (exit code 2): triggers rollback and injects feedback via `additionalContext`
-- **Allow** (exit code 0): write proceeds
-- **Modify** (via `updatedInput`): rewrite the tool input before execution
+Understanding when to use each interception point is essential to getting enforcement (not just observation) from Detent.
+
+### The core distinction
+
+| | Point 1 — HTTP Proxy | Point 2 — Hook Adapter |
+|---|---|---|
+| **Where** | Between IDE and LLM API | Between agent and filesystem |
+| **When** | LLM response arrives | Tool call is about to execute |
+| **What it sees** | Full response containing proposed tool calls | Individual tool call with exact input |
+| **Can block?** | **No** — observational only | **Yes** — full enforcement |
+| **Rollback?** | No | Yes — SAVEPOINT created per call |
+| **Setup** | `ANTHROPIC_BASE_URL` or `OPENAI_BASE_URL` | Agent-specific hook config |
+
+**You need Point 2 to get enforcement.** Point 1 lets Detent observe and speculatively verify what the agent *plans* to do, but the forwarded response is never rewritten — the write still happens. Only Point 2 intercepts at the tool execution boundary and can return a deny decision before any disk change occurs.
+
+Running both gives you the full picture: Point 1 for early intent visibility (telemetry, IPC) + Point 2 for enforcement.
+
+### Setting up Point 1 — HTTP Proxy
+
+Start the Detent proxy, then redirect your agent's API traffic through it:
+
+```bash
+# Start the proxy (reads detent.yaml for config)
+detent proxy
+```
+
+**Claude Code:**
+```bash
+export ANTHROPIC_BASE_URL=http://127.0.0.1:7070
+claude  # all API traffic now routes through Detent
+```
+
+**Codex CLI:**
+```bash
+export OPENAI_BASE_URL=http://127.0.0.1:7070
+codex   # all API traffic now routes through Detent
+```
+
+Point 1 is useful for seeing what the agent is doing (observability, IPC signaling) but will not block writes on its own.
+
+### Setting up Point 2 — Hook Adapter
+
+Each agent has a different mechanism for registering a pre-execution hook. Detent exposes a POST endpoint for each agent; the hook command `curl`s that endpoint before every tool call. Detent verifies the proposed change and returns an allow/deny decision.
+
+#### Claude Code
+
+`detent init` writes the hook automatically into `.claude/settings.json`. To do it manually:
 
 ```json
-// PreToolUse stdin (received by Detent's hook)
+// .claude/settings.json
 {
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "curl -s -X POST http://127.0.0.1:7070/hooks/claude-code -H 'Content-Type: application/json' -d @-"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+How it works:
+1. Claude Code sends the proposed tool call as JSON on stdin to the hook command
+2. Detent receives it at `/hooks/claude-code`, creates a SAVEPOINT, runs the pipeline
+3. On pass → Detent exits 0 and returns `{"hookSpecificOutput": {"permissionDecision": "allow"}}`
+4. On fail → Detent rolls back, exits 2, and returns structured feedback in `additionalContext`
+
+Payload shape received by Detent:
+```json
+{
+  "hook_event_name": "PreToolUse",
   "tool_name": "Write",
   "tool_input": {
     "file_path": "/src/main.py",
     "content": "..."
-  }
+  },
+  "tool_call_id": "toolu_01..."
 }
 ```
+
+#### Codex CLI
+
+`detent init` writes the hook config automatically to `.codex/instructions.md`. To register it manually, set the pre-exec hook in your Codex CLI configuration to POST each tool call to `/hooks/codex`:
+
+```bash
+DETENT_HOOK=http://127.0.0.1:7070/hooks/codex
+```
+
+Detent accepts two payload formats from Codex:
+
+**Flat format** (common):
+```json
+{
+  "name": "create_file",
+  "arguments": "{\"file_path\": \"/src/main.py\", \"content\": \"x = 1\"}",
+  "call_id": "call_abc123",
+  "session_id": "sess_xyz"
+}
+```
+
+**Nested function format** (OpenAI tool_call style):
+```json
+{
+  "function": {
+    "name": "run_command",
+    "arguments": "{\"command\": \"pytest tests/\"}"
+  },
+  "id": "call_abc123"
+}
+```
+
+Response returned to Codex:
+```json
+{"approved": true, "decision": "allow"}
+// or on failure:
+{"approved": false, "decision": "deny"}
+```
+
+#### Gemini CLI
+
+Register a `BeforeTool` hook that POSTs to `/hooks/gemini`:
+
+```bash
+# In your Gemini CLI tool config or hook script:
+curl -s -X POST http://127.0.0.1:7070/hooks/gemini \
+  -H 'Content-Type: application/json' \
+  -d @-
+```
+
+Detent accepts either:
+- `{"tool_name": "...", "tool_input": {...}}` (native Gemini BeforeTool shape)
+- `{"functionCall": {"name": "...", "args": {...}}}` (older function_call shape)
+
+#### LangGraph (VerificationNode)
+
+Hook adapters are not used with LangGraph. Instead, insert `VerificationNode` directly into the agent graph — it intercepts tool calls at the graph edge level and gates execution:
+
+```python
+from detent.adapters.langgraph import VerificationNode
+
+# Insert between agent node and tools node
+graph.add_node("verify", VerificationNode(proxy))
+graph.add_edge("agent", "verify")
+graph.add_edge("verify", "tools")
+```
+
+The `VerificationNode` integrates with LangGraph's native checkpointing — rollback state is stored in the same backend as conversation state.
+
+### Quick comparison: proxy-only vs hook-only vs both
+
+| Setup | Observes intent | Blocks writes | Rollback | Recommended for |
+|---|---|---|---|---|
+| Proxy only | ✅ | ❌ | ❌ | Telemetry, debugging, IPC |
+| Hook only | ❌ | ✅ | ✅ | Enforcement in CI/automated |
+| Both | ✅ | ✅ | ✅ | Full enforcement + observability |
+
+For most users, **hook-only is sufficient** — it gives full enforcement at lower setup complexity. Add the proxy if you need pre-execution intent visibility or IPC between components.
+
+### Claude Code Adapter
+
+Claude Code's `PreToolUse` hook receives the full proposed file content as JSON on stdin before any disk write. Detent's hook can:
+
+- **Allow** (exit code 0): write proceeds
+- **Block** (exit code 2): triggers rollback and injects feedback via `additionalContext`
 
 ### Gemini Adapter
 

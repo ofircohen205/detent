@@ -17,9 +17,10 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import click
 import structlog
@@ -104,6 +105,92 @@ def create_session_dir(session_dir: Path | None = None) -> None:
         session_dir = Path(".detent/session")
     session_dir.mkdir(parents=True, exist_ok=True)
     logger.info(f"Created session directory: {session_dir}")
+
+
+def configure_claude_code_hook(port: int = 7070) -> bool:
+    """Write the Detent PreToolUse hook into .claude/settings.json.
+
+    Creates or merges into the project-level Claude Code settings file so
+    every tool call is sent to the Detent hook endpoint for enforcement.
+
+    Args:
+        port: Port the Detent proxy is listening on (default 7070).
+
+    Returns:
+        True if the hook was added or was already present, False on error.
+    """
+    settings_path = Path(".claude") / "settings.json"
+    hook_command = (
+        f"curl -s -X POST http://127.0.0.1:{port}/hooks/claude-code -H 'Content-Type: application/json' -d @-"
+    )
+    detent_hook = {"type": "command", "command": hook_command}
+
+    # Load existing settings or start fresh
+    settings: dict[str, Any] = {}
+    if settings_path.exists():
+        try:
+            settings = json.loads(settings_path.read_text())
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning("Could not read %s: %s", settings_path, e)
+            return False
+
+    hooks: dict[str, Any] = settings.setdefault("hooks", {})
+    pretool_entries: list[dict[str, Any]] = hooks.setdefault("PreToolUse", [])
+
+    # Idempotent: skip if a Detent hook is already registered
+    for entry in pretool_entries:
+        for h in entry.get("hooks", []):
+            if "/hooks/claude-code" in h.get("command", ""):
+                logger.debug("Detent hook already present in %s; skipping", settings_path)
+                return True
+
+    # Append a catch-all entry that sends every tool call to Detent
+    pretool_entries.append({"matcher": "", "hooks": [detent_hook]})
+
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json.dumps(settings, indent=2) + "\n")
+    logger.info("Wrote Detent hook to %s", settings_path)
+    return True
+
+
+def configure_codex_hook(port: int = 7070) -> bool:
+    """Write the Detent hook into .codex/instructions.md for Codex CLI.
+
+    Codex CLI reads shell instructions from .codex/instructions.md in the
+    project root. We append a note directing Codex to send tool calls to the
+    Detent hook endpoint for enforcement.
+
+    Args:
+        port: Port the Detent proxy is listening on (default 7070).
+
+    Returns:
+        True if the hook was added or was already present, False on error.
+    """
+    instructions_path = Path(".codex") / "instructions.md"
+    hook_note = f"DETENT_HOOK=http://127.0.0.1:{port}/hooks/codex"
+
+    if instructions_path.exists():
+        try:
+            existing = instructions_path.read_text()
+        except OSError as e:
+            logger.warning("Could not read %s: %s", instructions_path, e)
+            return False
+        if "/hooks/codex" in existing:
+            logger.debug("Detent codex hook already present in %s; skipping", instructions_path)
+            return True
+        content = existing.rstrip("\n") + "\n\n" + hook_note + "\n"
+    else:
+        content = hook_note + "\n"
+
+    try:
+        instructions_path.parent.mkdir(parents=True, exist_ok=True)
+        instructions_path.write_text(content)
+    except OSError as e:
+        logger.warning("Could not write %s: %s", instructions_path, e)
+        return False
+
+    logger.info("Wrote Detent hook to %s", instructions_path)
+    return True
 
 
 def _policy_allows(result: VerificationResult, policy: str) -> bool:

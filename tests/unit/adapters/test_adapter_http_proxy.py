@@ -7,38 +7,8 @@ import pytest
 
 from detent.adapters.http.claude_code import ClaudeCodeAdapter
 from detent.adapters.http.codex import CodexAdapter
-from detent.adapters.http.cursor import CursorAdapter
 from detent.adapters.http.providers import AnthropicResponseAdapter, OpenAIResponseAdapter
 from detent.schema import ActionType
-
-
-@pytest.mark.asyncio
-async def test_cursor_adapter_intercept_openai_tool_call():
-    """CursorAdapter should normalize OpenAI tool calls."""
-    adapter = CursorAdapter(session_manager=MagicMock())
-    raw_event = {
-        "choices": [
-            {
-                "message": {
-                    "tool_calls": [
-                        {
-                            "id": "call_1",
-                            "function": {
-                                "name": "create_file",
-                                "arguments": json.dumps({"file_path": "/src/main.py", "content": "x = 1"}),
-                            },
-                        }
-                    ]
-                }
-            }
-        ]
-    }
-
-    action = await adapter.intercept(raw_event)
-    assert action is not None
-    assert action.action_type == ActionType.FILE_WRITE
-    assert action.tool_name == "create_file"
-    assert action.tool_input["file_path"] == "/src/main.py"
 
 
 @pytest.mark.asyncio
@@ -47,48 +17,6 @@ async def test_codex_adapter_no_tool_calls_returns_none():
     adapter = CodexAdapter(session_manager=MagicMock())
     action = await adapter.intercept({"choices": [{"message": {}}]})
     assert action is None
-
-
-@pytest.mark.asyncio
-async def test_cursor_adapter_intercept_response_openai_tool_call():
-    """CursorAdapter should parse OpenAI response bodies into actions."""
-    adapter = CursorAdapter(session_manager=MagicMock())
-    response_body = json.dumps(
-        {
-            "choices": [
-                {
-                    "message": {
-                        "tool_calls": [
-                            {
-                                "id": "call_1",
-                                "function": {
-                                    "name": "create_file",
-                                    "arguments": json.dumps({"file_path": "/src/main.py", "content": "x = 1"}),
-                                },
-                            }
-                        ]
-                    }
-                }
-            ]
-        }
-    ).encode()
-
-    actions = await adapter.intercept_response(response_body)
-
-    assert len(actions) == 1
-    assert actions[0].action_type == ActionType.FILE_WRITE
-    assert actions[0].tool_name == "create_file"
-    assert actions[0].tool_input["file_path"] == "/src/main.py"
-
-
-@pytest.mark.asyncio
-async def test_cursor_adapter_intercept_response_without_tool_calls():
-    """CursorAdapter should return an empty list when no tool calls exist."""
-    adapter = CursorAdapter(session_manager=MagicMock())
-
-    actions = await adapter.intercept_response(json.dumps({"choices": [{"message": {}}]}).encode())
-
-    assert actions == []
 
 
 @pytest.mark.asyncio

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import aiohttp
 import pytest
 
-from detent.adapters.hook.openapi import OpenAPIAdapter
+from detent.adapters.hook.codex import CodexHookAdapter
 from detent.proxy.http_proxy import _HOP_BY_HOP_RESPONSE_HEADERS, DetentProxy
 
 
@@ -54,9 +54,9 @@ def test_proxy_accepts_openai_upstream() -> None:
 
 @pytest.mark.asyncio
 async def test_hook_route_registered_before_proxy_handler():
-    """Hook routes should be matched before the catch-all proxy handler."""
+    """Hook routes should be matched before the catch-all proxy handler (which returns 502)."""
     proxy = DetentProxy(port=9996, upstream_url="https://api.anthropic.com")
-    adapter = OpenAPIAdapter(session_manager=MagicMock())
+    adapter = CodexHookAdapter(session_manager=MagicMock())
     adapter.register(proxy.app)
     await proxy.start()
 
@@ -64,11 +64,12 @@ async def test_hook_route_registered_before_proxy_handler():
         async with (
             aiohttp.ClientSession() as session,
             session.post(
-                f"http://127.0.0.1:{proxy.port}/hooks/openapi",
+                f"http://127.0.0.1:{proxy.port}/hooks/codex",
                 json={},
             ) as resp,
         ):
-            assert resp.status == 400
+            # Hook adapter handles the request (not the catch-all proxy → 502)
+            assert resp.status != 502
     finally:
         await proxy.stop()
 
