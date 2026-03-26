@@ -123,7 +123,7 @@ class ClaudeCodeAdapter(HTTPProxyAdapter):
                 self._log_response_parse_end(0)
                 return []
 
-            actions: list[AgentAction] = []
+            actions = []
             for item in content:
                 if not isinstance(item, dict) or item.get("type") != "tool_use":
                     continue
