@@ -163,18 +163,6 @@ def http_adapter(mock_session_manager):
     return TestHTTPAdapter(mock_session_manager)
 
 
-def test_log_http_intercept(http_adapter, capsys):
-    """Test _log_http_intercept logs HTTP request details."""
-    http_adapter._log_http_intercept("POST", "/v1/messages")
-    captured = capsys.readouterr()
-
-    assert "intercepting HTTP request" in captured.out
-    assert "POST" in captured.out
-    assert "/v1/messages" in captured.out
-    assert "test-http" in captured.out
-    assert "[debug" in captured.out
-
-
 def test_log_response_parse_start_json(http_adapter, capsys):
     """Test _log_response_parse_start detects JSON content type."""
     http_adapter._log_response_parse_start("application/json")

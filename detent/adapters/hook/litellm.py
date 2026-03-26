@@ -81,7 +81,7 @@ class LiteLLMAdapter(HookAdapter):
 
         action_type = self._ACTION_TYPE_MAP.get(tool_name, ActionType.MCP_TOOL)
         if tool_name not in self._ACTION_TYPE_MAP:
-            logger.warning("[litellm] unknown tool %s, treating as mcp_tool", tool_name)
+            self._log_intercept_error("unknown_tool", f"unknown tool '{tool_name}', treating as mcp_tool")
 
         action = AgentAction(
             action_type=action_type,

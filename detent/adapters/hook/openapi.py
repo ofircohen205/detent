@@ -20,12 +20,8 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Any
 
-import structlog
-
 from detent.adapters.hook.base import HookAdapter
 from detent.schema import ActionType, AgentAction, RiskLevel
-
-logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 if TYPE_CHECKING:
     from detent.proxy.session import SessionManager
@@ -62,7 +58,7 @@ class OpenAPIAdapter(HookAdapter):
 
         action_type = self._ACTION_TYPE_MAP.get(tool_name, ActionType.MCP_TOOL)
         if tool_name not in self._ACTION_TYPE_MAP:
-            logger.warning("[openapi] unknown tool %s, treating as mcp_tool", tool_name)
+            self._log_intercept_error("unknown_tool", f"unknown tool '{tool_name}', treating as mcp_tool")
 
         action = AgentAction(
             action_type=action_type,

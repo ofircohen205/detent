@@ -75,7 +75,7 @@ class ClaudeCodeAdapter(HTTPProxyAdapter):
 
         action_type = self._ACTION_TYPE_MAP.get(tool_name, ActionType.MCP_TOOL)
         if tool_name not in self._ACTION_TYPE_MAP:
-            logger.warning("[claude-code] unknown tool %s, treating as mcp_tool", tool_name)
+            self._log_intercept_error("unknown_tool", f"unknown tool '{tool_name}', treating as mcp_tool")
         else:
             logger.debug("[claude-code] intercepted %s tool call %s", tool_name, tool_call_id)
 

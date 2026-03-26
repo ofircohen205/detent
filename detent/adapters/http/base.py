@@ -41,21 +41,6 @@ class HTTPProxyAdapter(AgentAdapter):
     async def intercept_response(self, resp_body: bytes) -> list[AgentAction]:
         """Parse an LLM API response and return actionable tool calls."""
 
-    def _log_http_intercept(self, method: str, path: str) -> None:
-        """Log HTTP request interception at DEBUG level.
-
-        Args:
-            method: HTTP method (GET, POST, etc.)
-            path: URL path being intercepted
-        """
-        logger.debug(
-            "intercepting HTTP request",
-            agent=self.agent_name,
-            method=method,
-            path=path,
-            upstream_host=self.upstream_host,
-        )
-
     def _log_response_parse_start(self, content_type: str) -> None:
         """Log response parsing entry at DEBUG level.
 
