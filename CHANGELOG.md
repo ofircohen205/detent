@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-03-26
+
+### Added
+
+- **Comprehensive adapter logging** — all agent adapters emit structured logs at every stage: intercept start/end, errors, verification result handling, and performance timing; shared `_log_*` helpers added to `AgentAdapter` and `HTTPProxyAdapter` base classes
+- **`ClaudeCodeHookAdapter`** — Point 2 enforcement adapter for Claude Code `PreToolUse` hooks (`/hooks/claude-code`); returns `permissionDecision` allow/deny with structured feedback
+- **`CodexHookAdapter`** — Point 2 enforcement adapter for Codex CLI pre-exec hooks (`/hooks/codex`); handles flat and nested OpenAI-style payloads; returns `approved`/`decision`
+- **Auto-wired hook configuration** — `detent init` writes the `PreToolUse` hook into `.claude/settings.json` (Claude Code) and `.codex/instructions.md` (Codex) automatically; idempotent, merges with existing settings
+- **`configure_claude_code_hook()` and `configure_codex_hook()`** — programmatic hook setup utilities in `detent.cli.utils`
+- **Hooks vs proxy documentation** — new "Using Hooks vs Proxy" section in `AGENTS.md` with per-agent setup instructions; README Quick Start updated with hook setup examples per agent
+
+### Changed
+
+- **Terminal-first adapter scope** — removed Cursor, LiteLLM, and OpenAPI adapters (not terminal-based coding assistants); supported agents are now Claude Code, Codex, and Gemini (hook enforcement) plus LangGraph (VerificationNode)
+- **Hook adapters registered at proxy startup** — `detent proxy` registers Point 2 hook adapters on the aiohttp app before `start()` so enforcement is active immediately
+- **Agent choices in `detent init`** updated to `[claude-code, codex, gemini, langgraph]`
+
 ## [1.0.6] - 2026-03-25
 
 ### Fixed
