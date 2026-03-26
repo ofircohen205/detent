@@ -35,6 +35,7 @@ from detent.proxy.http_proxy import DetentProxy
 from detent.proxy.session import SessionManager
 
 if TYPE_CHECKING:
+    from detent.adapters.hook.base import HookAdapter
     from detent.adapters.http.base import HTTPProxyAdapter
 
 from .app import main
@@ -44,7 +45,6 @@ logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 _DEFAULT_UPSTREAM_HOSTS: dict[str, str] = {
     "claude-code": UPSTREAM_HOST_ANTHROPIC,
     "codex": UPSTREAM_HOST_OPENAI,
-    "cursor": UPSTREAM_HOST_OPENAI,
 }
 
 
@@ -56,6 +56,23 @@ def _resolve_proxy_upstream(config: DetentConfig) -> str:
     if config.agent not in _DEFAULT_UPSTREAM_HOSTS:
         logger.warning("[proxy] no default upstream for agent %r; falling back to Anthropic", config.agent)
     return f"https://{upstream_host}"
+
+
+def _register_hook_adapters(proxy: DetentProxy, config: DetentConfig, session_manager: SessionManager) -> None:
+    """Register Point 2 hook adapters on the proxy app before it starts."""
+    hook_adapter: HookAdapter | None = None
+    if config.agent == "claude-code":
+        from detent.adapters.hook.claude_code import ClaudeCodeHookAdapter
+
+        hook_adapter = ClaudeCodeHookAdapter(session_manager=session_manager)
+    elif config.agent == "codex":
+        from detent.adapters.hook.codex import CodexHookAdapter
+
+        hook_adapter = CodexHookAdapter(session_manager=session_manager)
+
+    if hook_adapter is not None:
+        hook_adapter.register(proxy.app)
+        logger.info("[proxy] registered %s hook adapter at %s", config.agent, hook_adapter.route)
 
 
 def _build_http_adapter(
@@ -99,6 +116,7 @@ async def _run_proxy() -> None:
         session_manager=session_manager,
         http_adapter=http_adapter,
     )
+    _register_hook_adapters(proxy, config, session_manager)
     await proxy.start()
 
     loop = asyncio.get_running_loop()

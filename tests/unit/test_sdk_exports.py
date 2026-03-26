@@ -9,6 +9,8 @@ def test_all_exports_importable():
         AgentAdapter,
         CheckpointEngine,
         ClaudeCodeAdapter,
+        ClaudeCodeHookAdapter,
+        CodexHookAdapter,
         DetentConfig,
         DetentProxy,
         DetentSessionConflictError,
@@ -33,7 +35,7 @@ def test_all_exports_importable():
         VerificationStage,
     )
 
-    # Verify all 26 imports are not None
+    # Verify all 28 imports are not None
     assert all(
         x is not None
         for x in [
@@ -61,6 +63,8 @@ def test_all_exports_importable():
             TestsStage,
             AgentAdapter,
             ClaudeCodeAdapter,
+            ClaudeCodeHookAdapter,
+            CodexHookAdapter,
             LangGraphAdapter,
             DetentSessionConflictError,
             IPCMessageType,
@@ -99,14 +103,13 @@ def test_all_in_all():
         "SecurityStage",
         "AgentAdapter",
         "ClaudeCodeAdapter",
+        "ClaudeCodeHookAdapter",
+        "CodexAdapter",
+        "CodexHookAdapter",
         "LangGraphAdapter",
+        "GeminiAdapter",
         "HookAdapter",
         "HTTPProxyAdapter",
-        "LiteLLMAdapter",
-        "CursorAdapter",
-        "CodexAdapter",
-        "GeminiAdapter",
-        "OpenAPIAdapter",
         "CircuitBreaker",
         "TelemetryConfig",
         "DetentSessionConflictError",

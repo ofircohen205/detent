@@ -38,11 +38,13 @@ graph TD
 ## Key Features
 
 ✅ **Real-time interception** — Catches bad code before it hits your repo
-✅ **Composable verification** — Chain stages: syntax → lint → typecheck → tests
+✅ **Composable verification** — Chain stages: syntax → lint → typecheck → tests → security
 ✅ **Atomic rollback** — SAVEPOINT semantics for file operations
 ✅ **LLM-optimized feedback** — Structured JSON that helps agents self-repair
+✅ **Multi-language support** — Python, JavaScript/TypeScript, Go, Rust
+✅ **Four agent adapters** — Claude Code, Codex, Gemini (hook-based enforcement); LangGraph (VerificationNode)
+✅ **Production-ready** — Security hardened, telemetry, circuit breakers, 366+ tests
 ✅ **CLI + Python SDK** — Use standalone or integrate with agents
-✅ **Seven agent adapters** — Claude Code, LangGraph, Cursor, Codex (http/); Gemini, LiteLLM, OpenAPI (hook/)
 
 ## How It Differs
 
@@ -53,6 +55,7 @@ graph TD
 | Atomic rollback        | ✅     | ❌          | ❌    | ❌               |
 | Runs tests             | ✅     | ✅          | ✅    | ❌               |
 | Agent-aware feedback   | ✅     | ❌          | ❌    | ❌               |
+| Multi-language         | ✅     | ✅          | ✅    | ✅ (varies)      |
 
 ## Quick Start
 
@@ -69,18 +72,67 @@ cd my-project
 detent init
 ```
 
-Interactive setup wizard will ask:
+The interactive wizard auto-detects your agent and writes `detent.yaml`. If you're using **Claude Code** or **Codex**, it also registers the hook automatically — no manual config needed.
 
-- Which agent you're using (auto-detected or manual)
-- Policy strictness (strict/standard/permissive)
+### Connect Detent to your agent
 
-### Verify a file
+Detent enforces at the tool execution layer (**Point 2**) via a pre-execution hook — this is what blocks writes and triggers rollbacks. It optionally also runs an HTTP proxy (**Point 1**) for observability.
+
+**Claude Code** (hook auto-configured by `detent init`):
+
+```bash
+detent proxy &   # start the proxy (Point 1 — optional, for observability)
+claude           # hook is already wired via .claude/settings.json
+```
+
+The hook in `.claude/settings.json` was written by `detent init`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [{"type": "command", "command": "curl -s -X POST http://127.0.0.1:7070/hooks/claude-code -H 'Content-Type: application/json' -d @-"}]
+      }
+    ]
+  }
+}
+```
+
+**Codex CLI** (hook auto-configured by `detent init`):
+
+```bash
+detent proxy &        # start the proxy (also serves /hooks/codex)
+export OPENAI_BASE_URL=http://127.0.0.1:7070   # Point 1 — optional
+codex                 # hook is wired via .codex/instructions.md
+```
+
+**Gemini CLI**:
+
+```bash
+detent proxy &   # start the proxy (serves /hooks/gemini)
+# Register the BeforeTool hook in your Gemini CLI config:
+# curl -s -X POST http://127.0.0.1:7070/hooks/gemini -H 'Content-Type: application/json' -d @-
+gemini
+```
+
+**LangGraph** (no hook — use `VerificationNode` instead):
+
+```python
+from detent.adapters.langgraph import VerificationNode
+graph.add_node("verify", VerificationNode(proxy))
+graph.add_edge("agent", "verify")
+graph.add_edge("verify", "tools")
+```
+
+> **Hook vs proxy:** The hook (Point 2) is what enforces — it intercepts each tool call before it executes, runs verification, and returns allow/deny. The proxy (Point 1) is observational only and does not block writes on its own. See [AGENTS.md → Using Hooks vs Proxy](./AGENTS.md#using-hooks-vs-proxy) for the full breakdown.
+
+### Verify a file manually
 
 ```bash
 detent run src/main.py
 ```
-
-Output:
 
 ```
 ✅ Syntax: PASS
@@ -88,18 +140,14 @@ Output:
 ✅ Type check (mypy): PASS
 ✅ Tests (pytest): PASS
 
-Verification passed! File is safe to write.
-Checkpoint: chk_before_write_001
+Verification passed. Checkpoint: chk_before_write_001
 ```
 
 If verification fails:
 
 ```
 ❌ Lint (ruff): FAIL
-  src/main.py:5:1 - E501: Line too long
-
-Fix suggested:
-  Break line at column 100
+  src/main.py:5:1 - E501: line too long
 
 Rolling back to checkpoint: chk_before_write_001
 ```
@@ -133,11 +181,11 @@ detent rollback chk_before_write_001
 ### Components
 
 - **Checkpoint Engine** — SAVEPOINT + rollback (in-memory + shadow git)
-- **Verification Pipeline** — Composable stages (syntax, lint, typecheck, tests)
+- **Verification Pipeline** — Composable stages (syntax, lint, typecheck, tests, security)
 - **Feedback Synthesis** — LLM-optimized structured feedback
-- **Agent Adapters** — Claude Code, LangGraph, Cursor, Codex (http/); Gemini, LiteLLM, OpenAPI (hook/)
+- **Agent Adapters** — Claude Code, Codex, Gemini (hook enforcement); LangGraph (VerificationNode); HTTP proxy for Claude Code + Codex
 - **CLI** — `detent init`, `detent run`, `detent status`, `detent rollback`
-- **Python SDK** — 27 public APIs for programmatic use
+- **Python SDK** — 27+ public APIs for programmatic use
 
 ## Use Cases
 
@@ -145,7 +193,7 @@ detent rollback chk_before_write_001
 
 - Verify code before committing to main
 - Catch mistakes in real time
-- Confidence in agent-generated code
+- Build confidence in agent-generated code
 
 **Teams**
 
@@ -159,38 +207,77 @@ detent rollback chk_before_write_001
 - Benchmark verification techniques
 - Feedback synthesis for agent improvement
 
-## Status
+## Project Status
 
-✅ **v0.1** (Proof of Concept) — Complete
+### Current Release: v1.0.6 (2026-03-25)
 
-- Full interception layer
-- Verification pipeline with 4 stages
-- Feedback synthesis
-- 2 agent adapters
-- 211+ tests
+✅ **v1.0** (Production Ready) — Released 2026-03-16
 
-✅ **v1.0** (Production Ready) — Complete (2026-03-16)
+- Multi-language support: Python, JavaScript/TypeScript, Go, Rust
+- Hook adapters for Claude Code, Codex, and Gemini (Point 2 enforcement); LangGraph VerificationNode
+- Security scanning (Semgrep + Bandit)
+- OpenTelemetry tracing, metrics, and circuit breakers
+- Security hardening: path traversal fixes, input validation, HTTP allowlist, dependency audit
+- GitHub Actions CI/CD with automated testing and security scanning
+- **366+ tests** covering all stages, adapters, and checkpoint engine
 
-- Python, JavaScript/TypeScript, Go, and Rust verification stages
-- All 7 agent adapters (Claude Code, LangGraph, Cursor, Codex, Gemini, LiteLLM, OpenAPI)
-- Security scanning (Semgrep, Bandit)
-- OpenTelemetry tracing and metrics, circuit breakers
-- GitHub Actions CI/CD workflows
-- 324+ tests
+**Latest Updates (v1.0.1 → v1.0.6):**
+- Adapter wiring and compatibility fixes (Claude Code, Codex, Gemini)
+- Dependency optimization (removed rich runtime dependency)
+- HTTP header handling improvements
+- Structured logging migration
+- Production stability improvements
 
-⏳ **v2.0** (Enterprise) — Q1 2027
+⏳ **v2.0** (Enterprise) — Planned Q1 2027
 
-- Detent Cloud (SaaS)
+- Detent Cloud (SaaS platform)
 - Multi-agent orchestration
 - VS Code extension
+- Advanced analytics and insights
+
+## Development Phases
+
+| Phase | Component | Status |
+|-------|-----------|--------|
+| 1 | Schema, config, project setup | ✅ Complete |
+| 2 | Checkpoint engine | ✅ Complete |
+| 3 | Verification stages | ✅ Complete |
+| 4 | Verification pipeline | ✅ Complete |
+| 5 | Feedback synthesis | ✅ Complete |
+| 6-8 | Agent adapters, observability, security | ✅ Complete |
+
+All core features shipped in v1.0. Ongoing work focuses on production reliability, performance optimization, and v2.0 planning.
 
 ## Documentation
 
-- [**INSTALLATION.md**](./INSTALLATION.md) — Setup instructions
-- [**DEVELOPMENT.md**](./DEVELOPMENT.md) — Developer guide
-- [**AGENTS.md**](./AGENTS.md) — Architecture & verification stages
+- [**INSTALLATION.md**](./INSTALLATION.md) — Setup instructions and configuration
+- [**DEVELOPMENT.md**](./DEVELOPMENT.md) — Developer guide and build instructions
+- [**AGENTS.md**](./AGENTS.md) — Architecture, verification stages, adapters, and SDK
 - [**CONTRIBUTING.md**](./CONTRIBUTING.md) — How to contribute
-- [**SUPPORT.md**](./SUPPORT.md) — FAQ & troubleshooting
+- [**SUPPORT.md**](./SUPPORT.md) — FAQ, troubleshooting, and community
+
+## Testing
+
+Detent has comprehensive test coverage:
+
+```bash
+# All tests (366+ total)
+make test
+
+# Unit tests only (fast, no external tool deps)
+make test-unit
+
+# With coverage report
+make test-cov
+```
+
+**Test breakdown:**
+- 200+ unit tests (syntax, lint, typecheck, tests, security stages)
+- 100+ integration tests (full pipeline with real tools)
+- 60+ adapter and checkpoint tests
+- Security and regression tests
+
+See [DEVELOPMENT.md](./DEVELOPMENT.md) for detailed testing guidance.
 
 ## License
 
