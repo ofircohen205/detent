@@ -46,10 +46,6 @@ See the plan documents in `docs/plans/` for complete details.
 - [x] Codex CLI — HTTP proxy (Point 1) + pre-exec hook (Point 2)
 - [x] Gemini CLI — BeforeTool hook (Point 2)
 - [x] LangGraph — VerificationNode (Point 2)
-- [ ] Cursor IDE adapter — planned
-- [ ] Aider (CLI agent) adapter — planned
-- [ ] LiteLLM adapter (multi-model) — planned
-- [ ] OpenAPI / custom agents — planned
 
 ### Security Features
 

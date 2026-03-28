@@ -129,9 +129,7 @@ Detent intercepts individual tool calls via agent-specific adapters before they 
 
 | Agent                | Interception Mechanism                        | Status |
 | -------------------- | --------------------------------------------- | ------ |
-| **Cursor IDE**       | OpenAI-compatible HTTP proxy                  | ❌ planned |
-| **Aider**            | LiteLLM callback injection + `Coder` subclass | ❌ planned |
-| **LiteLLM**          | LiteLLM callback hook                         | ❌ planned |
+| **Aider**            | `Coder` subclass hook                         | ❌ planned |
 | **Cline / Roo Code** | MCP stdio proxy + `.clinerules`/hooks         | ❌ planned |
 | **OpenHands**        | Event stream subscription + REST API          | ❌ planned |
 
