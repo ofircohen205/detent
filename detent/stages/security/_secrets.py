@@ -84,25 +84,33 @@ async def _scan_file(
             )
         ]
 
+    logger.debug("secret_scan.start", file=original_path)
     try:
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-    except TimeoutError:
-        with contextlib.suppress(ProcessLookupError):
-            proc.kill()
-        with contextlib.suppress(Exception):
-            await proc.communicate()
-        return [
-            Finding(
-                severity="warning",
-                file=original_path,
-                line=None,
-                column=None,
-                message=f"detect-secrets timed out after {timeout}s",
-                code="secrets/timeout",
-                stage=stage_name,
-                fix_suggestion=None,
-            )
-        ]
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        except TimeoutError:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            with contextlib.suppress(Exception):
+                await proc.communicate()
+            return [
+                Finding(
+                    severity="warning",
+                    file=original_path,
+                    line=None,
+                    column=None,
+                    message=f"detect-secrets timed out after {timeout}s",
+                    code="secrets/timeout",
+                    stage=stage_name,
+                    fix_suggestion=None,
+                )
+            ]
+    finally:
+        if proc.returncode is None:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            with contextlib.suppress(Exception):
+                await proc.communicate()
 
     if proc.returncode != 0:
         stderr_text = stderr.decode("utf-8", errors="replace").strip()
@@ -154,4 +162,5 @@ async def _scan_file(
                     ),
                 )
             )
+    logger.debug("secret_scan.complete", file=original_path, findings=len(findings))
     return findings
