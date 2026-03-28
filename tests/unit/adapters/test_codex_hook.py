@@ -35,8 +35,8 @@ async def test_intercept_flat_format_create_file():
 
 
 @pytest.mark.asyncio
-async def test_intercept_nested_function_format():
-    """Parses nested OpenAI function format: {function: {name, arguments}, id}."""
+async def test_intercept_nested_function_format_shell_exec_returns_none():
+    """Nested OpenAI format with run_command (SHELL_EXEC) returns None — not a file write."""
     adapter = CodexHookAdapter(session_manager=MagicMock())
 
     raw_event = {
@@ -49,11 +49,7 @@ async def test_intercept_nested_function_format():
 
     action = await adapter.intercept(raw_event)
 
-    assert action is not None
-    assert action.tool_name == "run_command"
-    assert action.action_type == ActionType.SHELL_EXEC
-    assert action.tool_call_id == "call_hook_02"
-    assert action.tool_input["command"] == "pytest tests/"
+    assert action is None
 
 
 @pytest.mark.asyncio
@@ -103,14 +99,40 @@ async def test_intercept_missing_name_returns_none():
 
 
 @pytest.mark.asyncio
-async def test_intercept_unknown_tool_defaults_to_mcp_tool():
-    """Unknown tools default to mcp_tool action type."""
+async def test_intercept_unknown_tool_returns_none():
+    """Unknown tools return None — only file-write tools are intercepted."""
     adapter = CodexHookAdapter(session_manager=MagicMock())
-
     action = await adapter.intercept({"name": "some_custom_tool", "arguments": "{}", "call_id": "call_hook_06"})
+    assert action is None
 
+
+@pytest.mark.asyncio
+async def test_intercept_bash_returns_none():
+    """Bash events return None — Codex file-write detection via command inspection is future work."""
+    adapter = CodexHookAdapter(session_manager=MagicMock())
+    action = await adapter.intercept(
+        {
+            "name": "Bash",
+            "arguments": json.dumps({"command": "echo hello > /tmp/out.txt"}),
+            "call_id": "call_bash_01",
+        }
+    )
+    assert action is None
+
+
+@pytest.mark.asyncio
+async def test_intercept_notebook_edit_passes_through():
+    """NotebookEdit is FILE_WRITE in the shared map — Codex would intercept it if it ever sent one."""
+    adapter = CodexHookAdapter(session_manager=MagicMock())
+    action = await adapter.intercept(
+        {
+            "name": "NotebookEdit",
+            "arguments": json.dumps({"notebook_path": "/nb.ipynb"}),
+            "call_id": "call_nb_01",
+        }
+    )
     assert action is not None
-    assert action.action_type == ActionType.MCP_TOOL
+    assert action.action_type == ActionType.FILE_WRITE
 
 
 @pytest.mark.asyncio

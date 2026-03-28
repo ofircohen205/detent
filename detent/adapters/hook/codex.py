@@ -88,8 +88,13 @@ class CodexHookAdapter(HookAdapter):
         session_id = raw_event.get("session_id", "")
 
         action_type = self._ACTION_TYPE_MAP.get(tool_name, ActionType.MCP_TOOL)
-        if tool_name not in self._ACTION_TYPE_MAP:
-            self._log_intercept_error("unknown_tool", f"unknown tool '{tool_name}', treating as mcp_tool")
+
+        # Only intercept file-write tools.
+        # Codex currently only exposes Bash (SHELL_EXEC) — all events return None until
+        # Bash command inspection is implemented as a future improvement.
+        if action_type != ActionType.FILE_WRITE:
+            self._log_intercept_end(None)
+            return None
 
         action = AgentAction(
             action_type=action_type,
