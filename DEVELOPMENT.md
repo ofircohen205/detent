@@ -13,16 +13,16 @@ detent/
 │   ├── adapters/                # Agent-specific adapters
 │   │   ├── base.py              # AgentAdapter base class
 │   │   ├── langgraph.py         # LangGraph VerificationNode
-│   │   ├── http/                # HTTP proxy adapters (API base URL override)
+│   │   ├── http/                # HTTP proxy adapters (Point 1 — API base URL override)
 │   │   │   ├── base.py
-│   │   │   ├── claude_code.py   # Claude Code PreToolUse hooks
-│   │   │   ├── cursor.py        # Cursor OpenAI-compatible adapter
-│   │   │   └── codex.py         # Codex CLI adapter
-│   │   └── hook/                # Hook adapters (preToolUse/callback)
+│   │   │   ├── claude_code.py   # Claude Code HTTP proxy
+│   │   │   ├── codex.py         # Codex CLI HTTP proxy
+│   │   │   └── providers.py     # Upstream provider detection
+│   │   └── hook/                # Hook adapters (Point 2 — pre-execution enforcement)
 │   │       ├── base.py
-│   │       ├── gemini.py
-│   │       ├── litellm.py
-│   │       └── openapi.py
+│   │       ├── claude_code.py   # Claude Code PreToolUse hook handler
+│   │       ├── codex.py         # Codex CLI pre-exec hook handler
+│   │       └── gemini.py        # Gemini BeforeTool hook handler
 │   ├── checkpoint/              # Atomic checkpoint/rollback
 │   │   ├── engine.py            # CheckpointEngine class
 │   │   ├── savepoint.py         # SAVEPOINT and rollback logic

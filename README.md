@@ -43,7 +43,7 @@ graph TD
 ✅ **LLM-optimized feedback** — Structured JSON that helps agents self-repair
 ✅ **Multi-language support** — Python, JavaScript/TypeScript, Go, Rust
 ✅ **Four agent adapters** — Claude Code, Codex, Gemini (hook-based enforcement); LangGraph (VerificationNode)
-✅ **Production-ready** — Security hardened, telemetry, circuit breakers, 366+ tests
+✅ **Production-ready** — Security hardened, telemetry, circuit breakers, 427+ tests
 ✅ **CLI + Python SDK** — Use standalone or integrate with agents
 
 ## How It Differs
@@ -92,7 +92,7 @@ The hook in `.claude/settings.json` was written by `detent init`:
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "",
+        "matcher": "Write|Edit|NotebookEdit",
         "hooks": [{"type": "command", "command": "curl -s -X POST http://127.0.0.1:7070/hooks/claude-code -H 'Content-Type: application/json' -d @-"}]
       }
     ]
@@ -105,7 +105,7 @@ The hook in `.claude/settings.json` was written by `detent init`:
 ```bash
 detent proxy &        # start the proxy (also serves /hooks/codex)
 export OPENAI_BASE_URL=http://127.0.0.1:7070   # Point 1 — optional
-codex                 # hook is wired via .codex/instructions.md
+codex                 # hook is wired via .codex/hooks.json
 ```
 
 **Gemini CLI**:
@@ -209,7 +209,7 @@ detent rollback chk_before_write_001
 
 ## Project Status
 
-### Current Release: v1.0.6 (2026-03-25)
+### Current Release: v1.1.0 (2026-03-28)
 
 ✅ **v1.0** (Production Ready) — Released 2026-03-16
 
@@ -219,9 +219,13 @@ detent rollback chk_before_write_001
 - OpenTelemetry tracing, metrics, and circuit breakers
 - Security hardening: path traversal fixes, input validation, HTTP allowlist, dependency audit
 - GitHub Actions CI/CD with automated testing and security scanning
-- **366+ tests** covering all stages, adapters, and checkpoint engine
+- **427+ tests** covering all stages, adapters, and checkpoint engine
 
-**Latest Updates (v1.0.1 → v1.0.6):**
+**Latest Updates (v1.0.1 → v1.1.0):**
+- Hook scope fix: Claude Code PreToolUse hook now fires only on file-write tools (`Write|Edit|NotebookEdit`), not every tool call
+- Codex hook config moved to `.codex/hooks.json` (was incorrectly using `instructions.md`)
+- Adapter-level FILE_WRITE filter as defense-in-depth across all hook adapters
+- Gemini adapter tool name normalization and FILE_WRITE guard
 - Adapter wiring and compatibility fixes (Claude Code, Codex, Gemini)
 - Dependency optimization (removed rich runtime dependency)
 - HTTP header handling improvements
@@ -261,7 +265,7 @@ All core features shipped in v1.0. Ongoing work focuses on production reliabilit
 Detent has comprehensive test coverage:
 
 ```bash
-# All tests (366+ total)
+# All tests (427+ total)
 make test
 
 # Unit tests only (fast, no external tool deps)
@@ -272,9 +276,8 @@ make test-cov
 ```
 
 **Test breakdown:**
-- 200+ unit tests (syntax, lint, typecheck, tests, security stages)
+- 250+ unit tests (syntax, lint, typecheck, tests, security stages, adapters, checkpoint)
 - 100+ integration tests (full pipeline with real tools)
-- 60+ adapter and checkpoint tests
 - Security and regression tests
 
 See [DEVELOPMENT.md](./DEVELOPMENT.md) for detailed testing guidance.

@@ -25,6 +25,7 @@ Detent is **not** a code review product, code generation tool, or CI plugin. It 
 
 - ✅ v0.1 (Proof of Concept) — Complete. Full package with CLI, SDK exports, session management, verification pipeline, checkpoint engine, and 324+ tests.
 - ✅ v1.0 (Production Ready) — Complete (released 2026-03-16)
+- ✅ v1.1 (Hook Scope Fix) — Complete (released 2026-03-28). Hook matcher scoped to file-write tools only; Codex hook config corrected; 427+ tests.
 - ⏳ v2.0 (Enterprise Platform) — Planned
 
 **Key Documentation:**
@@ -122,8 +123,8 @@ detent/
 ├── adapters/
 │   ├── base.py
 │   ├── langgraph.py
-│   ├── http/          ← claude_code.py, cursor.py, codex.py
-│   └── hook/          ← gemini.py, litellm.py, openapi.py
+│   ├── http/          ← claude_code.py, codex.py, providers.py
+│   └── hook/          ← claude_code.py, codex.py, gemini.py
 ├── checkpoint/        ← engine.py, savepoint.py, schemas.py
 ├── cli/               ← app.py, init.py, run.py, status.py, rollback.py, proxy.py
 ├── config/            ← __init__.py, languages.py
@@ -328,11 +329,18 @@ DETENT_LOG_LEVEL=INFO                     # DEBUG | INFO | WARNING | ERROR
   - Full unit tests for pipeline and checkpoint engine (324+ tests) ✅
 
 - ✅ **v1.0 (Production Ready) — Complete (released 2026-03-16):**
-  - HTTP adapters (Claude Code, Cursor, Codex) + hook adapters (Gemini, LiteLLM, OpenAPI) ✅
+  - HTTP adapters (Claude Code, Codex) + hook adapters (Claude Code, Codex, Gemini) ✅
+  - LangGraph VerificationNode ✅
   - Multi-language stages: Python, JavaScript/TypeScript, Go, Rust ✅
   - Security scanning (Semgrep + Bandit) ✅
   - OpenTelemetry tracing + metrics; circuit breakers ✅
   - Docker + docker-compose ✅
+
+- ✅ **v1.1 (Hook Scope Fix) — Complete (released 2026-03-28):**
+  - PreToolUse hook matcher scoped to `Write|Edit|NotebookEdit` ✅
+  - Codex hook config corrected to `.codex/hooks.json` ✅
+  - Adapter-level FILE_WRITE guard; Gemini tool name isolation ✅
+  - 427+ tests ✅
 
 - ⏳ **v2.0 (Enterprise Platform) — Planned:**
   - Detent Cloud (managed SaaS); multi-agent orchestration; VS Code extension

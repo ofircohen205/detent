@@ -113,11 +113,11 @@ Detent intercepts individual tool calls via agent-specific adapters before they 
 
 **Hook adapters** (Point 2 — enforcement, pre-execution interception):
 
-| Agent           | Hook mechanism                             | Endpoint              | Module                          |
-| --------------- | ------------------------------------------ | --------------------- | ------------------------------- |
-| **Claude Code** | `PreToolUse` hook (stdin JSON → exit code) | `/hooks/claude-code`  | `adapters/hook/claude_code.py`  |
-| **Codex CLI**   | Pre-exec hook (OpenAI-style JSON payload)  | `/hooks/codex`        | `adapters/hook/codex.py`        |
-| **Gemini CLI**  | `BeforeTool` hook (POST JSON)              | `/hooks/gemini`       | `adapters/hook/gemini.py`       |
+| Agent           | Hook mechanism                                                      | Endpoint              | Module                          |
+| --------------- | ------------------------------------------------------------------- | --------------------- | ------------------------------- |
+| **Claude Code** | `PreToolUse` hook on `Write\|Edit\|NotebookEdit` (stdin JSON)      | `/hooks/claude-code`  | `adapters/hook/claude_code.py`  |
+| **Codex CLI**   | Pre-exec hook in `.codex/hooks.json` (OpenAI-style JSON payload)   | `/hooks/codex`        | `adapters/hook/codex.py`        |
+| **Gemini CLI**  | `BeforeTool` hook (POST JSON, native Gemini tool names)             | `/hooks/gemini`       | `adapters/hook/gemini.py`       |
 
 **Graph adapters** (Point 2 — enforcement via graph node):
 
@@ -129,9 +129,11 @@ Detent intercepts individual tool calls via agent-specific adapters before they 
 
 | Agent                | Interception Mechanism                        | Status |
 | -------------------- | --------------------------------------------- | ------ |
-| **Aider**            | LiteLLM callback injection + `Coder` subclass | ❌     |
-| **Cline / Roo Code** | MCP stdio proxy + `.clinerules`/hooks         | ❌     |
-| **OpenHands**        | Event stream subscription + REST API          | ❌     |
+| **Cursor IDE**       | OpenAI-compatible HTTP proxy                  | ❌ planned |
+| **Aider**            | LiteLLM callback injection + `Coder` subclass | ❌ planned |
+| **LiteLLM**          | LiteLLM callback hook                         | ❌ planned |
+| **Cline / Roo Code** | MCP stdio proxy + `.clinerules`/hooks         | ❌ planned |
+| **OpenHands**        | Event stream subscription + REST API          | ❌ planned |
 
 ---
 
@@ -191,7 +193,7 @@ Each agent has a different mechanism for registering a pre-execution hook. Deten
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "",
+        "matcher": "Write|Edit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -225,10 +227,25 @@ Payload shape received by Detent:
 
 #### Codex CLI
 
-`detent init` writes the hook config automatically to `.codex/instructions.md`. To register it manually, set the pre-exec hook in your Codex CLI configuration to POST each tool call to `/hooks/codex`:
+`detent init` writes the hook config automatically to `.codex/hooks.json`. To register it manually, add a `PreToolUse` entry to `.codex/hooks.json`:
 
-```bash
-DETENT_HOOK=http://127.0.0.1:7070/hooks/codex
+```json
+// .codex/hooks.json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "curl -s -X POST http://127.0.0.1:7070/hooks/codex -H 'Content-Type: application/json' -d @-"
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
 Detent accepts two payload formats from Codex:
