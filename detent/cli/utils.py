@@ -30,6 +30,8 @@ if TYPE_CHECKING:
 
 logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
+_DETENT_HOOK_MATCHER = "Write|Edit|NotebookEdit"
+
 
 class CLIConsole:
     """Small wrapper matching the subset of Rich Console used by the CLI."""
@@ -135,11 +137,10 @@ def configure_claude_code_hook(port: int = 7070) -> bool:
         return False
 
     hook_command = (
-        f"curl -s -X POST http://127.0.0.1:{port}/hooks/claude-code -H 'Content-Type: application/json' -d @-"
+        f"curl -s -X POST http://127.0.0.1:{port}/hooks/claude-code" f" -H 'Content-Type: application/json' -d @-"
     )
     detent_hook = {"type": "command", "command": hook_command}
 
-    # Load existing settings or start fresh
     settings: dict[str, Any] = {}
     if settings_path.exists():
         try:
@@ -151,18 +152,38 @@ def configure_claude_code_hook(port: int = 7070) -> bool:
     hooks: dict[str, Any] = settings.setdefault("hooks", {})
     pretool_entries: list[dict[str, Any]] = hooks.setdefault("PreToolUse", [])
 
-    # Idempotent: skip if a Detent hook is already registered
-    for entry in pretool_entries:
-        for h in entry.get("hooks", []):
-            if "/hooks/claude-code" in h.get("command", ""):
-                logger.debug("Detent hook already present in %s; skipping", settings_path)
-                return True
+    # Identify stale and correct Detent entries
+    stale = [
+        entry
+        for entry in pretool_entries
+        if any("/hooks/claude-code" in h.get("command", "") for h in entry.get("hooks", []))
+        and entry.get("matcher") != _DETENT_HOOK_MATCHER
+    ]
+    correct = [
+        entry
+        for entry in pretool_entries
+        if any("/hooks/claude-code" in h.get("command", "") for h in entry.get("hooks", []))
+        and entry.get("matcher") == _DETENT_HOOK_MATCHER
+    ]
 
-    # Append a catch-all entry that sends every tool call to Detent
-    pretool_entries.append({"matcher": "", "hooks": [detent_hook]})
+    if correct and not stale:
+        logger.debug("Detent hook already correct in %s; skipping", settings_path)
+        return True
+
+    if stale:
+        logger.info("Migrating %d stale Detent hook entry/entries in %s", len(stale), settings_path)
+        for entry in stale:
+            pretool_entries.remove(entry)
+
+    if not correct:
+        pretool_entries.append({"matcher": _DETENT_HOOK_MATCHER, "hooks": [detent_hook]})
 
     settings_path.parent.mkdir(parents=True, exist_ok=True)
-    settings_path.write_text(json.dumps(settings, indent=2) + "\n")
+    try:
+        settings_path.write_text(json.dumps(settings, indent=2) + "\n")
+    except OSError as e:
+        logger.warning("Could not write %s: %s", settings_path, e)
+        return False
     logger.info("Wrote Detent hook to %s", settings_path)
     return True
 
