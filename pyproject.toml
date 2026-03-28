@@ -49,6 +49,7 @@ dev = [
 ]
 security = [
     "bandit>=1.9.4",
+    "detect-secrets>=1.5,<2",
     "pip-audit>=2.7,<3",
     "semgrep>=1.60",
 ]
@@ -104,4 +105,5 @@ dev = [
     "types-tree-sitter>=0.20.1.20240311",
     "pip-audit>=2.7,<3",
     "pytest-aiohttp>=1.1.0",
+    "ruff>=0.15.4",
 ]

@@ -47,6 +47,10 @@ stages:
       bandit:
         enabled: true
         confidence: low
+      secrets:
+        enabled: true   # detect-secrets: scan every file for hardcoded secrets
+      dep_scan:
+        enabled: true   # pip-audit: scan requirements*.txt files for known CVEs
 
 # Pipeline settings
 pipeline:

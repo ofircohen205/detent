@@ -38,7 +38,14 @@ def _stage_with_options(options: dict[str, object]) -> SecurityStage:
 
 @pytest.mark.asyncio
 async def test_both_tools_disabled_skips() -> None:
-    stage = _stage_with_options({"semgrep": {"enabled": False}, "bandit": {"enabled": False}})
+    stage = _stage_with_options(
+        {
+            "semgrep": {"enabled": False},
+            "bandit": {"enabled": False},
+            "secrets": {"enabled": False},
+            "dep_scan": {"enabled": False},
+        }
+    )
     action = make_action(file_path="/src/main.py", content="print('hi')\n")
     result = await stage.run(action)
     assert result.passed
@@ -188,3 +195,91 @@ async def test_timeout_kills_process(monkeypatch: pytest.MonkeyPatch) -> None:
     findings = await stage._run_semgrep("scan.py", "/src/main.py")
     assert proc.killed is True
     assert findings[0].code == "semgrep/timeout"
+
+
+# ---- new tests for wiring -----------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_secrets_enabled_calls_secret_scan() -> None:
+    from unittest.mock import AsyncMock, patch
+
+    stage = _stage_with_options(
+        {
+            "semgrep": {"enabled": False},
+            "bandit": {"enabled": False},
+            "secrets": {"enabled": True},
+            "dep_scan": {"enabled": False},
+        }
+    )
+    with patch(
+        "detent.stages.security.base.run_secret_scan",
+        new=AsyncMock(return_value=[]),
+    ) as mock_scan:
+        action = make_action(file_path="/src/main.py", content="x = 1\n")
+        result = await stage.run(action)
+    mock_scan.assert_called_once()
+    assert result.passed
+
+
+@pytest.mark.asyncio
+async def test_dep_scan_enabled_calls_dep_scan_for_manifest() -> None:
+    from unittest.mock import AsyncMock, patch
+
+    stage = _stage_with_options(
+        {
+            "semgrep": {"enabled": False},
+            "bandit": {"enabled": False},
+            "secrets": {"enabled": False},
+            "dep_scan": {"enabled": True},
+        }
+    )
+    with patch(
+        "detent.stages.security.base.run_dep_scan",
+        new=AsyncMock(return_value=[]),
+    ) as mock_scan:
+        action = make_action(file_path="requirements.txt", content="requests==2.31.0\n")
+        await stage.run(action)
+    mock_scan.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_dep_scan_not_called_for_python_source() -> None:
+    from unittest.mock import AsyncMock, patch
+
+    stage = _stage_with_options(
+        {
+            "semgrep": {"enabled": False},
+            "bandit": {"enabled": False},
+            "secrets": {"enabled": False},
+            "dep_scan": {"enabled": True},
+        }
+    )
+    with patch(
+        "detent.stages.security.base.run_dep_scan",
+        new=AsyncMock(return_value=[]),
+    ) as mock_scan:
+        action = make_action(file_path="/src/main.py", content="x = 1\n")
+        await stage.run(action)
+    mock_scan.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_metadata_tools_reflects_enabled_scanners() -> None:
+    from unittest.mock import AsyncMock, patch
+
+    stage = _stage_with_options(
+        {
+            "semgrep": {"enabled": False},
+            "bandit": {"enabled": False},
+            "secrets": {"enabled": True},
+            "dep_scan": {"enabled": False},
+        }
+    )
+    with patch(
+        "detent.stages.security.base.run_secret_scan",
+        new=AsyncMock(return_value=[]),
+    ):
+        action = make_action(file_path="/src/main.py", content="x = 1\n")
+        result = await stage.run(action)
+    assert "detect-secrets" in result.metadata["tools"]
