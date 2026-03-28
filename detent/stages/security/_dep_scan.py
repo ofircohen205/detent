@@ -146,7 +146,7 @@ async def _run_pip_audit(
     if not raw:
         return []
     try:
-        parsed: list[dict[str, Any]] = json.loads(raw)
+        parsed: dict[str, Any] = json.loads(raw)
     except json.JSONDecodeError:
         return [
             Finding(
@@ -162,7 +162,7 @@ async def _run_pip_audit(
         ]
 
     findings: list[Finding] = []
-    for pkg in parsed:
+    for pkg in parsed.get("dependencies", []):
         for vuln in pkg.get("vulns", []):
             fix_versions: list[str] = vuln.get("fix_versions", [])
             fix = (

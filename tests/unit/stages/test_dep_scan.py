@@ -60,25 +60,28 @@ def test_setup_py_is_not_manifest() -> None:
 
 def _vuln_output(name: str = "requests", version: str = "2.25.0") -> bytes:
     return json.dumps(
-        [
-            {
-                "name": name,
-                "version": version,
-                "vulns": [
-                    {
-                        "id": "PYSEC-2023-74",
-                        "description": "Unintended leak via proxies",
-                        "aliases": ["CVE-2023-32681"],
-                        "fix_versions": ["2.31.0"],
-                    }
-                ],
-            }
-        ]
+        {
+            "dependencies": [
+                {
+                    "name": name,
+                    "version": version,
+                    "vulns": [
+                        {
+                            "id": "PYSEC-2023-74",
+                            "description": "Unintended leak via proxies",
+                            "aliases": ["CVE-2023-32681"],
+                            "fix_versions": ["2.31.0"],
+                        }
+                    ],
+                }
+            ],
+            "fixes": [],
+        }
     ).encode()
 
 
 def _clean_output() -> bytes:
-    return json.dumps([{"name": "requests", "version": "2.31.0", "vulns": []}]).encode()
+    return json.dumps({"dependencies": [{"name": "requests", "version": "2.31.0", "vulns": []}], "fixes": []}).encode()
 
 
 @pytest.mark.asyncio
@@ -111,13 +114,16 @@ async def test_vulnerable_package_returns_error_finding() -> None:
 @pytest.mark.asyncio
 async def test_no_fix_available_shows_fallback_message() -> None:
     output = json.dumps(
-        [
-            {
-                "name": "old-pkg",
-                "version": "0.1.0",
-                "vulns": [{"id": "CVE-X", "description": "bad", "aliases": [], "fix_versions": []}],
-            }
-        ]
+        {
+            "dependencies": [
+                {
+                    "name": "old-pkg",
+                    "version": "0.1.0",
+                    "vulns": [{"id": "CVE-X", "description": "bad", "aliases": [], "fix_versions": []}],
+                }
+            ],
+            "fixes": [],
+        }
     ).encode()
     proc = FakeProc(returncode=1, stdout=output)
     with patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
