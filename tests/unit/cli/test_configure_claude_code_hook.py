@@ -106,3 +106,23 @@ def test_skips_when_hook_already_present_in_existing_entry(project_dir):
     assert result is True
     # File should not be rewritten
     assert settings_path.stat().st_mtime == original_mtime
+
+
+def test_raises_on_invalid_port(project_dir):
+    """configure_claude_code_hook raises ValueError for out-of-range port."""
+    with pytest.raises(ValueError, match="port must be 1-65535"):
+        configure_claude_code_hook(port=0)
+    with pytest.raises(ValueError, match="port must be 1-65535"):
+        configure_claude_code_hook(port=99999)
+
+
+def test_returns_false_when_dot_claude_is_symlink_escaping_project(project_dir, tmp_path_factory):
+    """Returns False when .claude/ is a symlink pointing outside the project root."""
+    outside = tmp_path_factory.mktemp("outside") / "outside_dir"
+    outside.mkdir()
+    dot_claude = project_dir / ".claude"
+    dot_claude.symlink_to(outside)
+
+    result = configure_claude_code_hook(port=7070)
+
+    assert result is False

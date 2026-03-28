@@ -90,7 +90,7 @@ class ProxyConfig(BaseModel):
     """Configuration for the HTTP reverse proxy."""
 
     host: str = Field(default=DEFAULT_PROXY_HOST, description="Bind address")
-    port: int = Field(default=DEFAULT_PROXY_PORT, description="Listen port")
+    port: int = Field(default=DEFAULT_PROXY_PORT, ge=1, le=65535, description="Listen port")
     upstream_url: str | None = Field(default=None, description="Explicit upstream LLM API base URL")
 
 
