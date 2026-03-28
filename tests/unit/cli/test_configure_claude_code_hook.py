@@ -114,6 +114,8 @@ def test_raises_on_invalid_port(project_dir):
         configure_claude_code_hook(port=0)
     with pytest.raises(ValueError, match="port must be 1-65535"):
         configure_claude_code_hook(port=99999)
+    with pytest.raises((ValueError, TypeError)):
+        configure_claude_code_hook(port="7070")  # type: ignore[arg-type]
 
 
 def test_returns_false_when_dot_claude_is_symlink_escaping_project(project_dir, tmp_path_factory):

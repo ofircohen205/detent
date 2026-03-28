@@ -119,21 +119,20 @@ def configure_claude_code_hook(port: int = 7070) -> bool:
     Returns:
         True if the hook was added or was already present, False on error.
     """
-    if not isinstance(port, int) or not (1 <= port <= 65535):
+    if not (1 <= port <= 65535):
         raise ValueError(f"port must be 1-65535, got {port!r}")
 
     settings_path = Path(".claude") / "settings.json"
 
     # Reject symlinks that escape the project root (mirrors savepoint.py pattern)
     project_root = Path.cwd().resolve()
-    if settings_path.parent.exists():
-        try:
-            resolved = settings_path.parent.resolve()
-        except OSError:
-            resolved = settings_path.parent
-        if not str(resolved).startswith(str(project_root)):
-            logger.error("Settings path %s escapes project root; refusing to write", resolved)
-            return False
+    try:
+        resolved = settings_path.parent.resolve()
+    except OSError:
+        resolved = settings_path.parent
+    if not resolved.is_relative_to(project_root):
+        logger.error("Settings path %s escapes project root; refusing to write", resolved)
+        return False
 
     hook_command = (
         f"curl -s -X POST http://127.0.0.1:{port}/hooks/claude-code -H 'Content-Type: application/json' -d @-"
@@ -181,21 +180,20 @@ def configure_codex_hook(port: int = 7070) -> bool:
     Returns:
         True if the hook was added or was already present, False on error.
     """
-    if not isinstance(port, int) or not (1 <= port <= 65535):
+    if not (1 <= port <= 65535):
         raise ValueError(f"port must be 1-65535, got {port!r}")
 
     instructions_path = Path(".codex") / "instructions.md"
 
     # Reject symlinks that escape the project root (mirrors savepoint.py pattern)
     project_root = Path.cwd().resolve()
-    if instructions_path.parent.exists():
-        try:
-            resolved = instructions_path.parent.resolve()
-        except OSError:
-            resolved = instructions_path.parent
-        if not str(resolved).startswith(str(project_root)):
-            logger.error("Hooks path %s escapes project root; refusing to write", resolved)
-            return False
+    try:
+        resolved = instructions_path.parent.resolve()
+    except OSError:
+        resolved = instructions_path.parent
+    if not resolved.is_relative_to(project_root):
+        logger.error("Hooks path %s escapes project root; refusing to write", resolved)
+        return False
 
     hook_note = f"DETENT_HOOK=http://127.0.0.1:{port}/hooks/codex"
 
