@@ -56,10 +56,6 @@ See the plan documents in `docs/plans/` for complete details.
 
 ### Platform Support
 
-- [ ] Windows support
-  - Shadow git on Windows
-  - Windows-compatible paths
-  - v2.0 goal
 - [x] Docker improvements
   - Multi-stage Dockerfile + docker-compose.yml
 
