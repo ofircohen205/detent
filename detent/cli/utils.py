@@ -189,11 +189,11 @@ def configure_claude_code_hook(port: int = 7070) -> bool:
 
 
 def configure_codex_hook(port: int = 7070) -> bool:
-    """Write the Detent hook into .codex/instructions.md for Codex CLI.
+    """Write the Detent PreToolUse hook into .codex/hooks.json for Codex CLI.
 
-    Codex CLI reads shell instructions from .codex/instructions.md in the
-    project root. We append a note directing Codex to send tool calls to the
-    Detent hook endpoint for enforcement.
+    Codex reads hook config from .codex/hooks.json. We register a Bash matcher
+    hook — Codex currently only exposes Bash as a hookable tool. File-write
+    detection within Bash commands is a future improvement.
 
     Args:
         port: Port the Detent proxy is listening on (default 7070).
@@ -204,41 +204,45 @@ def configure_codex_hook(port: int = 7070) -> bool:
     if not (1 <= port <= 65535):
         raise ValueError(f"port must be 1-65535, got {port!r}")
 
-    instructions_path = Path(".codex") / "instructions.md"
+    hooks_path = Path(".codex") / "hooks.json"
 
-    # Reject symlinks that escape the project root (mirrors savepoint.py pattern)
     project_root = Path.cwd().resolve()
     try:
-        resolved = instructions_path.parent.resolve()
+        resolved = hooks_path.parent.resolve()
     except OSError:
-        resolved = instructions_path.parent
+        resolved = hooks_path.parent
     if not resolved.is_relative_to(project_root):
         logger.error("Hooks path %s escapes project root; refusing to write", resolved)
         return False
 
-    hook_note = f"DETENT_HOOK=http://127.0.0.1:{port}/hooks/codex"
+    hook_command = f"curl -s -X POST http://127.0.0.1:{port}/hooks/codex" f" -H 'Content-Type: application/json' -d @-"
+    detent_hook = {"type": "command", "command": hook_command}
 
-    if instructions_path.exists():
+    hooks_data: dict[str, Any] = {}
+    if hooks_path.exists():
         try:
-            existing = instructions_path.read_text()
-        except OSError as e:
-            logger.warning("Could not read %s: %s", instructions_path, e)
+            hooks_data = json.loads(hooks_path.read_text())
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning("Could not read %s: %s", hooks_path, e)
             return False
-        if "/hooks/codex" in existing:
-            logger.debug("Detent codex hook already present in %s; skipping", instructions_path)
-            return True
-        content = existing.rstrip("\n") + "\n\n" + hook_note + "\n"
-    else:
-        content = hook_note + "\n"
 
+    hooks: dict[str, Any] = hooks_data.setdefault("hooks", {})
+    pretool_entries: list[dict[str, Any]] = hooks.setdefault("PreToolUse", [])
+
+    for entry in pretool_entries:
+        for h in entry.get("hooks", []):
+            if "/hooks/codex" in h.get("command", ""):
+                logger.debug("Detent codex hook already present in %s; skipping", hooks_path)
+                return True
+
+    pretool_entries.append({"matcher": "Bash", "hooks": [detent_hook]})
+    hooks_path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        instructions_path.parent.mkdir(parents=True, exist_ok=True)
-        instructions_path.write_text(content)
+        hooks_path.write_text(json.dumps(hooks_data, indent=2) + "\n")
     except OSError as e:
-        logger.warning("Could not write %s: %s", instructions_path, e)
+        logger.warning("Could not write %s: %s", hooks_path, e)
         return False
-
-    logger.info("Wrote Detent hook to %s", instructions_path)
+    logger.info("Wrote Detent hook to %s", hooks_path)
     return True
 
 
