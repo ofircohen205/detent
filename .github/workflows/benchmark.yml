@@ -1,0 +1,100 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  benchmark:
+    name: Latency benchmarks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Run benchmarks
+        run: |
+          uv run pytest benchmarks/bench_pipeline.py benchmarks/bench_checkpoint.py \
+            --benchmark-json=benchmark-results.json \
+            --benchmark-min-rounds=5 \
+            -v
+
+      - name: Post benchmark summary
+        if: always()
+        run: |
+          uv run python - <<'EOF'
+          import json, os, sys
+
+          with open("benchmark-results.json") as f:
+              data = json.load(f)
+
+          benchmarks = data.get("benchmarks", [])
+          lines = [
+              "## Benchmark Results",
+              "",
+              "| Benchmark | Mean (ms) | Min (ms) | Max (ms) | Rounds |",
+              "| --------- | --------- | -------- | -------- | ------ |",
+          ]
+
+          THRESHOLDS_MS = {
+              "bench_pipeline_no_stages_threshold": 5.0,
+              "test_pipeline_no_stages_threshold": 5.0,
+              "bench_rollback_1kb": 500.0,
+              "test_rollback_1kb": 500.0,
+          }
+
+          violations = []
+          for b in benchmarks:
+              name = b["name"]
+              s = b["stats"]
+              mean_ms = s["mean"] * 1000
+              min_ms = s["min"] * 1000
+              max_ms = s["max"] * 1000
+              rounds = s["rounds"]
+              flag = ""
+              if name in THRESHOLDS_MS and mean_ms > THRESHOLDS_MS[name]:
+                  flag = " OVER THRESHOLD"
+                  violations.append(
+                      f"{name}: {mean_ms:.2f} ms > {THRESHOLDS_MS[name]} ms threshold"
+                  )
+              lines.append(
+                  f"| `{name}`{flag} | {mean_ms:.3f} | {min_ms:.3f} | {max_ms:.3f} | {rounds} |"
+              )
+
+          if violations:
+              lines += ["", "### Threshold violations", ""]
+              for v in violations:
+                  lines.append(f"- {v}")
+
+          summary = "\n".join(lines) + "\n"
+          print(summary)
+
+          step_summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if step_summary:
+              with open(step_summary, "a") as f:
+                  f.write(summary)
+
+          if violations:
+              sys.exit(1)
+          EOF
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark-results.json
+          retention-days: 30
