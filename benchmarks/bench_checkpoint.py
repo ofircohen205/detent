@@ -60,7 +60,7 @@ def bench_rollback_1kb(benchmark: object, checkpoint_engine: CheckpointEngine, t
 
 
 def bench_rollback_100kb(benchmark: object, checkpoint_engine: CheckpointEngine, tmp_100kb: Path) -> None:
-    """Rollback a 100 KB file."""
+    """Rollback a 100 KB file. Asserts < 500 ms threshold."""
     original = tmp_100kb.read_bytes()
     asyncio.run(checkpoint_engine.savepoint("chk_roll_100kb", [str(tmp_100kb)]))  # type: ignore[union-attr]
 
@@ -69,6 +69,11 @@ def bench_rollback_100kb(benchmark: object, checkpoint_engine: CheckpointEngine,
         asyncio.run(checkpoint_engine.rollback("chk_roll_100kb"))  # type: ignore[union-attr]
 
     benchmark(run)  # type: ignore[operator]
+    if benchmark.stats is not None:  # type: ignore[union-attr]
+        mean_ms = benchmark.stats["mean"] * 1000  # type: ignore[union-attr]
+        assert (
+            mean_ms < _ROLLBACK_THRESHOLD_MS
+        ), f"Rollback latency {mean_ms:.2f} ms exceeds {_ROLLBACK_THRESHOLD_MS} ms threshold"
     assert tmp_100kb.read_bytes() == original
 
 

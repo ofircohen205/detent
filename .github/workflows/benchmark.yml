@@ -74,6 +74,11 @@ jobs:
                   f"| `{name}`{flag} | {mean_ms:.3f} | {min_ms:.3f} | {max_ms:.3f} | {rounds} |"
               )
 
+          matched_names = {b["name"] for b in benchmarks}
+          for key in THRESHOLDS_MS:
+              if key not in matched_names:
+                  print(f"WARNING: threshold key '{key}' has no matching benchmark — threshold not enforced")
+
           if violations:
               lines += ["", "### Threshold violations", ""]
               for v in violations:
