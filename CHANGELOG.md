@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-03-29
+
+### Added
+
+- **Secret scanning sub-stage** — `detent/stages/security/_secrets.py` integrates `detect-secrets` into the `SecurityStage`; runs concurrently with Semgrep and Bandit on every file write; returns one error Finding per detected secret with a fix suggestion to use an environment variable or secrets manager
+- **Dependency vulnerability scanning sub-stage** — `detent/stages/security/_dep_scan.py` integrates `pip-audit` into the `SecurityStage`; scans `requirements*.txt` files for known CVEs via the OSV database before they are written to disk; returns one error Finding per vulnerable package with upgrade guidance
+- **`detect-secrets` added to security optional extras** — `pip install detent[security]` now installs `detect-secrets>=1.5,<2` alongside Semgrep and Bandit
+- **`detent.yaml` `secrets` and `dep_scan` config sections** — both new sub-scanners are enabled by default; can be individually disabled via `secrets.enabled: false` / `dep_scan.enabled: false`
+
 ## [1.1.0] - 2026-03-26
 
 ### Added

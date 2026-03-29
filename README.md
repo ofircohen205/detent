@@ -209,7 +209,7 @@ detent rollback chk_before_write_001
 
 ## Project Status
 
-### Current Release: v1.1.0 (2026-03-28)
+### Current Release: v1.2.0 (2026-03-29)
 
 ✅ **v1.0** (Production Ready) — Released 2026-03-16
 
@@ -221,7 +221,7 @@ detent rollback chk_before_write_001
 - GitHub Actions CI/CD with automated testing and security scanning
 - **427+ tests** covering all stages, adapters, and checkpoint engine
 
-**Latest Updates (v1.0.1 → v1.1.0):**
+**v1.1.0 Updates:**
 - Hook scope fix: Claude Code PreToolUse hook now fires only on file-write tools (`Write|Edit|NotebookEdit`), not every tool call
 - Codex hook config moved to `.codex/hooks.json` (was incorrectly using `instructions.md`)
 - Adapter-level FILE_WRITE filter as defense-in-depth across all hook adapters
@@ -231,6 +231,11 @@ detent rollback chk_before_write_001
 - HTTP header handling improvements
 - Structured logging migration
 - Production stability improvements
+
+**v1.2.0 Updates:**
+- SAST/DAST pipeline integration: secret scanning (detect-secrets) on every file write
+- Dependency vulnerability scanning (pip-audit) on `requirements*.txt` files via OSV database
+- **422+ tests** covering all stages, adapters, and checkpoint engine
 
 ⏳ **v2.0** (Enterprise) — Planned Q1 2027
 

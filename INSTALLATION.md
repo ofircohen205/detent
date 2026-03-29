@@ -51,7 +51,7 @@ Verify installation:
 
 ```bash
 detent --version
-# Expected: detent, version 1.1.0
+# Expected: detent, version 1.2.0
 
 detent --help
 # Shows available commands
