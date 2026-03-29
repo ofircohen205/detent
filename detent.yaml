@@ -1,67 +1,76 @@
-# ─── Detent Configuration ────────────────────────────────────────────────────
-#
-# This file configures the Detent verification runtime.
-# Place it in your project root as `detent.yaml` or set DETENT_CONFIG env var.
-#
-# All settings have sensible defaults — this file is optional.
-
-# Policy profile: strict | standard | permissive
-#   strict     — all stages enabled; any finding blocks the write
-#   standard   — P0 stages enabled; warnings do not block, errors do
-#   permissive — syntax only; all other stages as warnings
-policy: standard
-
-# Agent type (auto-detected by `detent init`; override if needed)
-# agent: claude-code
-
-# Proxy configuration
-proxy:
-  host: "127.0.0.1"
-  port: 7070
-
-# Verification pipeline stages (executed in order)
-stages:
-  - name: syntax
+agent: claude-code
+ipc_timeout_ms: 4000
+log_level: INFO
+pipeline:
+  fail_fast: true
+  parallel: true
+  stages:
+  - circuit_breaker:
+      behavior: warn
+      enabled: false
+      failure_threshold: 5
+      recovery_window_s: 60.0
     enabled: true
-
-  - name: lint
-    enabled: true
-
-  - name: typecheck
-    enabled: true
+    name: syntax
+    options: {}
     timeout: 30
-
-  - name: tests
+    tools: []
+  - circuit_breaker:
+      behavior: warn
+      enabled: false
+      failure_threshold: 5
+      recovery_window_s: 60.0
     enabled: true
+    name: lint
+    options: {}
+    timeout: 30
+    tools: []
+  - circuit_breaker:
+      behavior: warn
+      enabled: false
+      failure_threshold: 5
+      recovery_window_s: 60.0
+    enabled: true
+    name: typecheck
+    options: {}
+    timeout: 30
+    tools: []
+  - circuit_breaker:
+      behavior: warn
+      enabled: false
+      failure_threshold: 5
+      recovery_window_s: 60.0
+    enabled: true
+    name: tests
+    options: {}
     timeout: 60
-
-  - name: security
+    tools: []
+  - circuit_breaker:
+      behavior: warn
+      enabled: false
+      failure_threshold: 5
+      recovery_window_s: 60.0
     enabled: true
-    timeout: 30
+    name: security
     options:
+      bandit:
+        confidence: low
+        enabled: true
       semgrep:
         enabled: true
         rulesets:
-          - p/python
-          - p/owasp-top-ten
-      bandit:
-        enabled: true
-        confidence: low
-      secrets:
-        enabled: true   # detect-secrets: scan every file for hardcoded secrets
-      dep_scan:
-        enabled: true   # pip-audit: scan requirements*.txt files for known CVEs
-
-# Pipeline settings
-pipeline:
-  parallel: false    # Run stages in parallel (opt-in)
-  fail_fast: true    # Halt on first P0 stage failure
-
-# Logging
-log_level: INFO      # DEBUG | INFO | WARNING | ERROR
-
-# IPC control channel timeout (ms)
-ipc_timeout_ms: 4000
-
-# Fail-closed mode (set to true for enterprise enforcement)
+        - p/python
+        - p/owasp-top-ten
+    timeout: 30
+    tools: []
+policy: standard
+proxy:
+  host: 127.0.0.1
+  port: 7070
+  upstream_url: null
 strict_mode: false
+telemetry:
+  enabled: true
+  exporter: console
+  otlp_endpoint: http://localhost:4317
+  service_name: detent
