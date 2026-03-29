@@ -10,6 +10,21 @@ import pytest
 from detent.schema import ActionType, AgentAction, RiskLevel
 
 
+class FakeProc:
+    """Minimal asyncio.subprocess.Process stand-in for unit tests."""
+
+    def __init__(self, *, returncode: int = 0, stdout: bytes = b"", stderr: bytes = b"") -> None:
+        self.returncode = returncode
+        self._stdout = stdout
+        self._stderr = stderr
+
+    async def communicate(self) -> tuple[bytes, bytes]:
+        return self._stdout, self._stderr
+
+    def kill(self) -> None:
+        pass
+
+
 @pytest.fixture
 def sample_action() -> AgentAction:
     """Create a sample AgentAction for file_write testing."""

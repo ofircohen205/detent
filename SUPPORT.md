@@ -69,7 +69,7 @@ python3 --version
 
 **Q: Can I use Detent on Windows?**
 
-A: Not yet. v0.1 is Linux/macOS only. Windows support is planned for v1.0.
+A: No. Detent supports Linux and macOS only.
 
 **Q: How do I uninstall Detent?**
 
@@ -188,7 +188,7 @@ A: Currently:
 - ✅ Claude Code (production)
 - ✅ LangGraph (tested)
 
-Planned for v1.0: Cursor, Aider, LiteLLM, OpenAPI, Gemini, Perplexity
+Supported: Claude Code, Codex, Gemini (hook enforcement), LangGraph (VerificationNode)
 
 **Q: How do I use Detent with Claude Code?**
 

@@ -24,24 +24,9 @@ import structlog
 from aiohttp import web
 
 from detent.adapters.base import AgentAdapter
+from detent.config.languages import is_verifiable_file
 
 logger: structlog.stdlib.BoundLogger = structlog.get_logger()
-
-# Extensions of languages Detent has verification stages for.
-# File writes for other extensions pass through without verification.
-_SUPPORTED_EXTENSIONS: frozenset[str] = frozenset(
-    {
-        ".py",  # Python
-        ".js",
-        ".jsx",
-        ".mjs",
-        ".cjs",  # JavaScript
-        ".ts",
-        ".tsx",  # TypeScript
-        ".go",  # Go
-        ".rs",  # Rust
-    }
-)
 
 
 class HookAdapter(AgentAdapter):
@@ -89,9 +74,9 @@ class HookAdapter(AgentAdapter):
             return web.json_response({"status": "skipped"})
 
         file_path = action.file_path or ""
-        if file_path and Path(file_path).suffix.lower() not in _SUPPORTED_EXTENSIONS:
+        if file_path and not is_verifiable_file(file_path):
             logger.debug(
-                "[%s] hook event skipped (unsupported language: %s)",
+                "[%s] hook event skipped (unsupported file: %s)",
                 self.agent_name,
                 Path(file_path).suffix or "(no extension)",
             )

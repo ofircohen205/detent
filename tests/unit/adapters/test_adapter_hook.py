@@ -7,6 +7,7 @@ from aiohttp import web
 
 from detent.adapters.hook import HookAdapter
 from detent.adapters.hook.gemini import GeminiAdapter
+from detent.config.languages import is_verifiable_file
 from detent.schema import ActionType
 
 
@@ -153,3 +154,93 @@ async def test_gemini_adapter_http_skipped_for_non_write(aiohttp_client):
     assert resp.status == 200
     body = await resp.json()
     assert body == {"status": "skipped"}
+
+
+# ---- Extension guard (is_verifiable_file) ------------------------------------
+
+
+@pytest.mark.parametrize(
+    "file_path",
+    [
+        "/src/main.py",
+        "/app/utils.js",
+        "/app/component.tsx",
+        "/lib/server.go",
+        "/lib/parser.rs",
+        "/project/requirements.txt",
+        "/project/requirements-dev.txt",
+        "/project/pyproject.toml",
+        "/project/package.json",
+        "/project/go.mod",
+        "/project/Cargo.toml",
+    ],
+)
+def test_verifiable_file_passes(file_path: str) -> None:
+    """Code files and dependency manifests should pass the extension guard."""
+    assert is_verifiable_file(file_path) is True
+
+
+@pytest.mark.parametrize(
+    "file_path",
+    [
+        "/docs/README.md",
+        "/config/settings.yaml",
+        "/data/output.json",
+        "/assets/logo.png",
+        "/project/setup.txt",  # not a requirements-family name
+        "/project/notes.txt",
+    ],
+)
+def test_non_verifiable_file_skipped(file_path: str) -> None:
+    """Non-code, non-manifest files should be filtered by the extension guard."""
+    assert is_verifiable_file(file_path) is False
+
+
+@pytest.mark.asyncio
+async def test_hook_skips_unsupported_extension(aiohttp_client) -> None:
+    """HTTP handler returns {status: skipped} for files with unsupported extensions."""
+
+    session_manager = MagicMock()
+    adapter = GeminiAdapter(session_manager=session_manager)
+    app = web.Application()
+    adapter.register(app)
+    client = await aiohttp_client(app)
+
+    resp = await client.post(
+        "/hooks/gemini",
+        json={"tool_name": "write_file", "tool_input": {"file_path": "/docs/notes.md", "content": "hello"}},
+    )
+    assert resp.status == 200
+    body = await resp.json()
+    assert body == {"status": "skipped"}
+    session_manager.intercept_tool_call.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_hook_allows_requirements_txt(aiohttp_client) -> None:
+    """HTTP handler does NOT skip requirements.txt (dependency manifest)."""
+    from unittest.mock import AsyncMock
+
+    from detent.pipeline.result import VerificationResult
+
+    mock_result = VerificationResult(stage="security", passed=True, findings=[], duration_ms=1.0)
+    session_manager = MagicMock()
+    session_manager.intercept_tool_call = AsyncMock(return_value=mock_result)
+
+    adapter = GeminiAdapter(session_manager=session_manager)
+    app = web.Application()
+    adapter.register(app)
+    client = await aiohttp_client(app)
+
+    resp = await client.post(
+        "/hooks/gemini",
+        json={
+            "tool_name": "write_file",
+            "tool_input": {"file_path": "/project/requirements.txt", "content": "requests==2.31.0\n"},
+        },
+    )
+    assert resp.status == 200
+    body = await resp.json()
+    # Not skipped — went through to intercept_tool_call
+    assert body.get("status") != "skipped"
+    session_manager.intercept_tool_call.assert_called_once()

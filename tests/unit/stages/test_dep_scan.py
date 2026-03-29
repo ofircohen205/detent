@@ -9,20 +9,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from detent.stages.security._dep_scan import is_dependency_manifest, run_dep_scan
-
-
-class FakeProc:
-    def __init__(self, *, returncode: int = 0, stdout: bytes = b"", stderr: bytes = b"") -> None:
-        self.returncode = returncode
-        self._stdout = stdout
-        self._stderr = stderr
-
-    async def communicate(self) -> tuple[bytes, bytes]:
-        return self._stdout, self._stderr
-
-    def kill(self) -> None:
-        pass
-
+from tests.conftest import FakeProc
 
 # ---- is_dependency_manifest -------------------------------------------------
 
@@ -85,16 +72,10 @@ def _clean_output() -> bytes:
 
 
 @pytest.mark.asyncio
-async def test_non_manifest_returns_empty() -> None:
-    result = await run_dep_scan("x = 1\n", "/src/main.py", "security", 30)
-    assert result == []
-
-
-@pytest.mark.asyncio
 async def test_clean_requirements_returns_empty() -> None:
     proc = FakeProc(returncode=0, stdout=_clean_output())
     with patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
-        result = await run_dep_scan("requests==2.31.0\n", "requirements.txt", "security", 30)
+        result = await run_dep_scan("/tmp/req.txt", "requirements.txt", "security", 30)
     assert result == []
 
 
@@ -102,7 +83,7 @@ async def test_clean_requirements_returns_empty() -> None:
 async def test_vulnerable_package_returns_error_finding() -> None:
     proc = FakeProc(returncode=1, stdout=_vuln_output())
     with patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
-        result = await run_dep_scan("requests==2.25.0\n", "requirements.txt", "security", 30)
+        result = await run_dep_scan("/tmp/req.txt", "requirements.txt", "security", 30)
     assert len(result) == 1
     assert result[0].severity == "error"
     assert "requests" in result[0].message
@@ -127,7 +108,7 @@ async def test_no_fix_available_shows_fallback_message() -> None:
     ).encode()
     proc = FakeProc(returncode=1, stdout=output)
     with patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
-        result = await run_dep_scan("old-pkg==0.1.0\n", "requirements.txt", "security", 30)
+        result = await run_dep_scan("/tmp/req.txt", "requirements.txt", "security", 30)
     assert result[0].fix_suggestion is not None
     assert "No fix" in result[0].fix_suggestion
 
@@ -135,7 +116,7 @@ async def test_no_fix_available_shows_fallback_message() -> None:
 @pytest.mark.asyncio
 async def test_not_installed_returns_warning() -> None:
     with patch("asyncio.create_subprocess_exec", side_effect=FileNotFoundError):
-        result = await run_dep_scan("requests==2.25.0\n", "requirements.txt", "security", 30)
+        result = await run_dep_scan("/tmp/req.txt", "requirements.txt", "security", 30)
     assert len(result) == 1
     assert result[0].severity == "warning"
     assert result[0].code == "dep-scan/not-installed"
@@ -143,10 +124,25 @@ async def test_not_installed_returns_warning() -> None:
 
 
 @pytest.mark.asyncio
+async def test_timeout_returns_warning() -> None:
+    proc = FakeProc(returncode=0)
+
+    with (
+        patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)),
+        patch("asyncio.wait_for", side_effect=TimeoutError),
+    ):
+        result = await run_dep_scan("/tmp/req.txt", "requirements.txt", "security", 1)
+    assert len(result) == 1
+    assert result[0].severity == "warning"
+    assert result[0].code == "dep-scan/timeout"
+    assert "1s" in result[0].message
+
+
+@pytest.mark.asyncio
 async def test_error_exit_code_returns_warning() -> None:
     proc = FakeProc(returncode=2, stdout=b"", stderr=b"resolution failed")
     with patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
-        result = await run_dep_scan("requests==2.25.0\n", "requirements.txt", "security", 30)
+        result = await run_dep_scan("/tmp/req.txt", "requirements.txt", "security", 30)
     assert len(result) == 1
     assert result[0].severity == "warning"
     assert result[0].code == "dep-scan/error"
@@ -156,7 +152,7 @@ async def test_error_exit_code_returns_warning() -> None:
 async def test_invalid_json_returns_warning() -> None:
     proc = FakeProc(returncode=0, stdout=b"bad json {")
     with patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
-        result = await run_dep_scan("requests==2.31.0\n", "requirements.txt", "security", 30)
+        result = await run_dep_scan("/tmp/req.txt", "requirements.txt", "security", 30)
     assert len(result) == 1
     assert result[0].severity == "warning"
     assert result[0].code == "dep-scan/error"
@@ -166,5 +162,5 @@ async def test_invalid_json_returns_warning() -> None:
 async def test_finding_file_is_original_path() -> None:
     proc = FakeProc(returncode=1, stdout=_vuln_output())
     with patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
-        result = await run_dep_scan("requests==2.25.0\n", "/project/requirements.txt", "security", 30)
+        result = await run_dep_scan("/tmp/tmpXXXX.txt", "/project/requirements.txt", "security", 30)
     assert result[0].file == "/project/requirements.txt"

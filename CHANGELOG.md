@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dependency vulnerability scanning sub-stage** — `detent/stages/security/_dep_scan.py` integrates `pip-audit` into the `SecurityStage`; scans `requirements*.txt` files for known CVEs via the OSV database before they are written to disk; returns one error Finding per vulnerable package with upgrade guidance
 - **`detect-secrets` added to security optional extras** — `pip install detent[security]` now installs `detect-secrets>=1.5,<2` alongside Semgrep and Bandit
 - **`detent.yaml` `secrets` and `dep_scan` config sections** — both new sub-scanners are enabled by default; can be individually disabled via `secrets.enabled: false` / `dep_scan.enabled: false`
+- **Context-aware extension guard** — hook adapters (Claude Code, Codex, Gemini) and the LangGraph adapter now use `is_verifiable_file()` from `detent.config.languages`; code files (`.py`, `.ts`, `.go`, `.rs`, etc.) and dependency manifests (`requirements*.txt`, `pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod`) pass through; all other file types are skipped without verification
 
 ## [1.1.0] - 2026-03-26
 
@@ -183,7 +184,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Python-focused** — Only Python verification stages; JavaScript support planned for v1.0
 - **Limited agent support** — Claude Code (production) and LangGraph (tested); 5 more agents planned for v1.0
-- **Linux/macOS only** — Windows support planned for v1.0
+- **Linux/macOS only** — Windows is not supported
 - **No security scanning** — Planned for v1.0 (Semgrep, Bandit)
 - **Basic IPC** — Unix domain sockets only; no network communication
 - **No web UI** — CLI and SDK only in v0.1
@@ -193,10 +194,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Planned for v1.0 (Q3 2026)
 
 - TypeScript/JavaScript verification stages (ESLint, TypeScript compiler, Jest)
-- Complete agent adapter coverage (Cursor, Aider, LiteLLM, OpenAPI, Gemini, Perplexity)
 - Security scanning integration (Semgrep, Bandit)
 - GitHub Actions integration and workflow templates
-- Windows support
 - Performance optimizations and benchmarking
 - Plugin system for custom stages and adapters
 

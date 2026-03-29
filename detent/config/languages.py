@@ -77,6 +77,56 @@ language_settings = get_language_settings()
 # Pre-compute once from the singleton — avoids rebuilding the dict on every detect_language() call.
 _EXTENSION_MAP: dict[str, str] = language_settings.extension_map
 
+# All code-file extensions that Detent has at least one verification stage for.
+# Derived from language_settings so the two never drift.
+_SUPPORTED_EXTENSIONS: frozenset[str] = (
+    language_settings.python_extensions
+    | language_settings.js_extensions
+    | language_settings.ts_extensions
+    | language_settings.go_extensions
+    | language_settings.rust_extensions
+)
+
+# Dependency manifest filenames (per language) that the dep-scan stage can process.
+# Named manifests are context-specific so we match by filename, not extension.
+_DEPENDENCY_MANIFESTS: frozenset[str] = frozenset(
+    {
+        # Python — pip-audit (supported), uv (future)
+        "pyproject.toml",
+        "setup.cfg",
+        # JavaScript/TypeScript — npm audit (future)
+        "package.json",
+        # Go — go mod audit (future)
+        "go.mod",
+        # Rust — cargo audit (future)
+        "Cargo.toml",
+    }
+)
+
+
+def is_dependency_manifest(file_path: str | Path) -> bool:
+    """Return True if *file_path* is a dependency manifest Detent should inspect.
+
+    Matches exact filenames in ``_DEPENDENCY_MANIFESTS`` and the
+    ``requirements*.txt`` family used by pip-audit.
+    """
+    name = Path(file_path).name
+    if name in _DEPENDENCY_MANIFESTS:
+        return True
+    # requirements.txt, requirements-dev.txt, requirements-prod.txt, …
+    return name.startswith("requirements") and name.endswith(".txt")
+
+
+def is_verifiable_file(file_path: str | Path) -> bool:
+    """Return True if Detent should run the verification pipeline on *file_path*.
+
+    A file is verifiable when it is either:
+    - a source code file whose extension is in ``_SUPPORTED_EXTENSIONS``, or
+    - a dependency manifest (checked by filename, not extension).
+    """
+    p = Path(file_path)
+    return p.suffix.lower() in _SUPPORTED_EXTENSIONS or is_dependency_manifest(p)
+
 
 def detect_language(file_path: str | Path | None) -> str:
     """Detect language from file extension. Returns 'unknown' for unrecognized types."""

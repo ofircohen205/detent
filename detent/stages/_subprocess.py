@@ -29,4 +29,5 @@ async def cleanup_process(proc: asyncio.subprocess.Process) -> None:
     if proc.returncode is None:
         with contextlib.suppress(ProcessLookupError):
             proc.kill()
-        await proc.communicate()
+        with contextlib.suppress(Exception):
+            await proc.communicate()

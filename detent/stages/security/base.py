@@ -30,6 +30,7 @@ import structlog
 
 from detent.config import StageConfig
 from detent.pipeline.result import Finding, VerificationResult
+from detent.stages._subprocess import cleanup_process
 from detent.stages.base import VerificationStage, _validate_file_path
 from detent.stages.security._dep_scan import is_dependency_manifest, run_dep_scan
 from detent.stages.security._secrets import run_secret_scan
@@ -131,10 +132,10 @@ class SecurityStage(VerificationStage):
                 tasks.append(asyncio.create_task(self._run_bandit(tmp_path, file_path)))
                 tools_used.append("bandit")
             if self._secrets_enabled:
-                tasks.append(asyncio.create_task(run_secret_scan(content, file_path, self.name, self._timeout)))
+                tasks.append(asyncio.create_task(run_secret_scan(tmp_path, file_path, self.name, self._timeout)))
                 tools_used.append("detect-secrets")
             if self._dep_scan_enabled and is_dependency_manifest(file_path):
-                tasks.append(asyncio.create_task(run_dep_scan(content, file_path, self.name, self._timeout)))
+                tasks.append(asyncio.create_task(run_dep_scan(tmp_path, file_path, self.name, self._timeout)))
                 tools_used.append("pip-audit")
 
             if not tasks:
@@ -234,7 +235,7 @@ class SecurityStage(VerificationStage):
                 )
             ]
         finally:
-            await self._cleanup_process(proc)
+            await cleanup_process(proc)
 
         stderr_text = stderr.decode("utf-8", errors="replace").strip()
         if proc.returncode not in (0, 1):
@@ -321,7 +322,7 @@ class SecurityStage(VerificationStage):
                 )
             ]
         finally:
-            await self._cleanup_process(proc)
+            await cleanup_process(proc)
 
         if proc.returncode == 0:
             return []
@@ -390,13 +391,6 @@ class SecurityStage(VerificationStage):
             stage=self.name,
             fix_suggestion=None,
         )
-
-    async def _cleanup_process(self, proc: asyncio.subprocess.Process) -> None:
-        if proc.returncode is None:
-            with contextlib.suppress(ProcessLookupError):
-                proc.kill()
-            with contextlib.suppress(Exception):
-                await proc.communicate()
 
     def _dedupe_findings(self, findings: list[Finding]) -> list[Finding]:
         seen: set[tuple[str, int | None, str]] = set()

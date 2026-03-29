@@ -4,7 +4,7 @@
 
 ## The Problem
 
-AI coding agents (Claude Code, Cursor, Codex) are powerful but unpredictable. They can write broken code, introduce security issues, or corrupt your codebase—all silently, before you notice.
+AI coding agents (Claude Code, Codex, Gemini) are powerful but unpredictable. They can write broken code, introduce security issues, or corrupt your codebase—all silently, before you notice.
 
 Existing solutions are slow:
 
@@ -18,7 +18,7 @@ You need a **protocol-level verification layer** that intercepts tool calls in r
 
 ```mermaid
 graph TD
-    Agent["🤖 AI Agent (e.g., Claude Code, Cursor)"]
+    Agent["🤖 AI Agent (e.g., Claude Code, Codex, Gemini)"]
 
     subgraph DV["Detent Verification Runtime"]
         S1["1. Create SAVEPOINT (checkpoint)"]

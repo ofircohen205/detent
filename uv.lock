@@ -532,8 +532,21 @@ wheels = [
 ]
 
 [[package]]
+name = "detect-secrets"
+version = "1.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyyaml" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/69/67/382a863fff94eae5a0cf05542179169a1c49a4c8784a9480621e2066ca7d/detect_secrets-1.5.0.tar.gz", hash = "sha256:6bb46dcc553c10df51475641bb30fd69d25645cc12339e46c824c1e0c388898a", size = 97351, upload-time = "2024-05-06T17:46:19.721Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4e/5e/4f5fe4b89fde1dc3ed0eb51bd4ce4c0bca406246673d370ea2ad0c58d747/detect_secrets-1.5.0-py3-none-any.whl", hash = "sha256:e24e7b9b5a35048c313e983f76c4bd09dad89f045ff059e354f9943bf45aa060", size = 120341, upload-time = "2024-05-06T17:46:16.628Z" },
+]
+
+[[package]]
 name = "detent"
-version = "1.1.0"
+version = "1.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -565,6 +578,7 @@ dev = [
 ]
 security = [
     { name = "bandit" },
+    { name = "detect-secrets" },
     { name = "pip-audit" },
     { name = "semgrep" },
 ]
@@ -578,6 +592,7 @@ dev = [
     { name = "pip-audit" },
     { name = "pre-commit" },
     { name = "pytest-aiohttp" },
+    { name = "ruff" },
     { name = "tree-sitter" },
     { name = "tree-sitter-python" },
     { name = "types-tree-sitter" },
@@ -589,6 +604,7 @@ requires-dist = [
     { name = "bandit", marker = "extra == 'security'", specifier = ">=1.9.4" },
     { name = "certifi", specifier = ">=2024.0" },
     { name = "click", specifier = ">=8.1,<9" },
+    { name = "detect-secrets", marker = "extra == 'security'", specifier = ">=1.5,<2" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14,<2" },
     { name = "mypy-extensions", marker = "extra == 'dev'", specifier = ">=1.0" },
     { name = "opentelemetry-exporter-otlp-proto-grpc", marker = "extra == 'telemetry'", specifier = ">=1.20" },
@@ -621,6 +637,7 @@ dev = [
     { name = "pip-audit", specifier = ">=2.7,<3" },
     { name = "pre-commit", specifier = ">=4.5.1" },
     { name = "pytest-aiohttp", specifier = ">=1.1.0" },
+    { name = "ruff", specifier = ">=0.15.4" },
     { name = "tree-sitter", specifier = ">=0.25.2" },
     { name = "tree-sitter-python", specifier = ">=0.25.0" },
     { name = "types-tree-sitter", specifier = ">=0.20.1.20240311" },

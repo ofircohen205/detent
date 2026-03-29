@@ -67,9 +67,9 @@ def detect_agent() -> str:
 
     Detection priority:
     1. ANTHROPIC_BASE_URL env var → claude-code
-    2. OPENAI_BASE_URL env var → cursor
+    2. OPENAI_BASE_URL env var → codex
     3. .claude/settings.json OR .claude/config.json (project or home) → claude-code
-    4. .cursor/ in project root or ~/.cursor/ in home dir → cursor
+    4. .codex/ in project root → codex
     5. langgraph in pyproject.toml → langgraph
     6. agent.py or agents/ directory → langgraph
     7. Default → unknown
@@ -77,7 +77,7 @@ def detect_agent() -> str:
     if os.getenv("ANTHROPIC_BASE_URL"):
         return "claude-code"
     if os.getenv("OPENAI_BASE_URL"):
-        return "cursor"
+        return "codex"
 
     home = Path.home()
     if (
@@ -88,8 +88,8 @@ def detect_agent() -> str:
     ):
         return "claude-code"
 
-    if Path(".cursor").exists() or (home / ".cursor").exists():
-        return "cursor"
+    if Path(".codex").exists():
+        return "codex"
 
     pyproject = Path("pyproject.toml")
     if pyproject.exists() and "langgraph" in pyproject.read_text():

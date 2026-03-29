@@ -4,7 +4,7 @@ Get Detent up and running in minutes.
 
 ## System Requirements
 
-- **OS:** Linux or macOS (Windows not yet supported)
+- **OS:** Linux or macOS (Windows is not supported)
 - **Python:** 3.12 or later
 - **Disk:** 500 MB for installation + dependencies
 - **RAM:** 1 GB minimum (2+ GB recommended)
