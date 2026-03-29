@@ -18,11 +18,13 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from detent.adapters.base import AgentAdapter
+from detent.adapters.hook.base import _SUPPORTED_EXTENSIONS
 from detent.schema import ActionType, AgentAction, RiskLevel
 
 if TYPE_CHECKING:
@@ -71,6 +73,13 @@ class LangGraphAdapter(AgentAdapter):
 
         if tool_name not in self._ACTION_TYPE_MAP:
             self._log_intercept_error("unknown_tool", f"unknown tool {tool_name!r}, treating as mcp_tool")
+
+        # Only verify file-writes for supported languages
+        if action_type == ActionType.FILE_WRITE:
+            file_path = tool_input.get("file_path", "")
+            if file_path and Path(file_path).suffix.lower() not in _SUPPORTED_EXTENSIONS:
+                self._log_intercept_end(None)
+                return None
 
         action = AgentAction(
             action_type=action_type,
