@@ -51,8 +51,9 @@ See the plan documents in `docs/plans/` for complete details.
 
 - [x] Semgrep integration for security scanning
 - [x] Bandit for Python security
-- [ ] SAST/DAST pipeline integration
-  - Estimated effort: 2 weeks
+- [x] SAST/DAST pipeline integration
+  - Secret scanning: detect-secrets on every file write (hardcoded secrets, API keys, tokens)
+  - Dependency scanning: pip-audit on requirements*.txt files (CVE lookup via OSV database)
 
 ### Platform Support
 
