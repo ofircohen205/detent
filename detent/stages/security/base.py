@@ -30,7 +30,10 @@ import structlog
 
 from detent.config import StageConfig
 from detent.pipeline.result import Finding, VerificationResult
+from detent.stages._subprocess import cleanup_process
 from detent.stages.base import VerificationStage, _validate_file_path
+from detent.stages.security._dep_scan import is_dependency_manifest, run_dep_scan
+from detent.stages.security._secrets import run_secret_scan
 
 if TYPE_CHECKING:
     from detent.schema import AgentAction
@@ -68,13 +71,17 @@ class SecurityStage(VerificationStage):
         self._bandit_enabled: bool = bandit_opts.get("enabled", True)
         self._bandit_confidence: str = bandit_opts.get("confidence", "low")
         self._timeout: int = config.timeout
+        secrets_opts = config.options.get("secrets", {})
+        dep_scan_opts = config.options.get("dep_scan", {})
+        self._secrets_enabled: bool = secrets_opts.get("enabled", True)
+        self._dep_scan_enabled: bool = dep_scan_opts.get("enabled", True)
 
     def supports_language(self, lang: str) -> bool:
         """Semgrep supports multiple languages; Bandit is handled internally."""
         return True
 
     async def _run(self, action: AgentAction) -> VerificationResult:
-        """Run Semgrep and Bandit concurrently on the proposed content."""
+        """Run Semgrep, Bandit, secret scan, and dep scan concurrently."""
         start = time.perf_counter()
 
         file_path = action.file_path or ""
@@ -92,28 +99,44 @@ class SecurityStage(VerificationStage):
                 metadata={"skipped": True, "reason": "No file_path in action"},
             )
 
-        if not self._semgrep_enabled and not self._bandit_enabled:
+        all_disabled = (
+            not self._semgrep_enabled
+            and not self._bandit_enabled
+            and not self._secrets_enabled
+            and not self._dep_scan_enabled
+        )
+        if all_disabled:
             duration_ms = (time.perf_counter() - start) * 1000
             return VerificationResult(
                 stage=self.name,
                 passed=True,
                 findings=[],
                 duration_ms=duration_ms,
-                metadata={"skipped": True, "reason": "Both tools disabled"},
+                metadata={"skipped": True, "reason": "All tools disabled"},
             )
 
         suffix = Path(file_path).suffix or ".txt"
         tmp_fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+        tools_used: list[str] = []
         try:
             with os.fdopen(tmp_fd, "w") as f:
                 f.write(content)
             tmp_fd = -1
 
             tasks: list[asyncio.Task[list[Finding]]] = []
+
             if self._semgrep_enabled:
                 tasks.append(asyncio.create_task(self._run_semgrep(tmp_path, file_path)))
+                tools_used.append("semgrep")
             if self._bandit_enabled and Path(file_path).suffix.lower() == ".py":
                 tasks.append(asyncio.create_task(self._run_bandit(tmp_path, file_path)))
+                tools_used.append("bandit")
+            if self._secrets_enabled:
+                tasks.append(asyncio.create_task(run_secret_scan(tmp_path, file_path, self.name, self._timeout)))
+                tools_used.append("detect-secrets")
+            if self._dep_scan_enabled and is_dependency_manifest(file_path):
+                tasks.append(asyncio.create_task(run_dep_scan(tmp_path, file_path, self.name, self._timeout)))
+                tools_used.append("pip-audit")
 
             if not tasks:
                 duration_ms = (time.perf_counter() - start) * 1000
@@ -160,7 +183,7 @@ class SecurityStage(VerificationStage):
             passed=passed,
             findings=findings,
             duration_ms=duration_ms,
-            metadata={"tools": ["semgrep", "bandit"]},
+            metadata={"tools": tools_used},
         )
 
     async def _run_semgrep(self, scan_path: str, original_path: str) -> list[Finding]:
@@ -212,7 +235,7 @@ class SecurityStage(VerificationStage):
                 )
             ]
         finally:
-            await self._cleanup_process(proc)
+            await cleanup_process(proc)
 
         stderr_text = stderr.decode("utf-8", errors="replace").strip()
         if proc.returncode not in (0, 1):
@@ -299,7 +322,7 @@ class SecurityStage(VerificationStage):
                 )
             ]
         finally:
-            await self._cleanup_process(proc)
+            await cleanup_process(proc)
 
         if proc.returncode == 0:
             return []
@@ -368,13 +391,6 @@ class SecurityStage(VerificationStage):
             stage=self.name,
             fix_suggestion=None,
         )
-
-    async def _cleanup_process(self, proc: asyncio.subprocess.Process) -> None:
-        if proc.returncode is None:
-            with contextlib.suppress(ProcessLookupError):
-                proc.kill()
-            with contextlib.suppress(Exception):
-                await proc.communicate()
 
     def _dedupe_findings(self, findings: list[Finding]) -> list[Finding]:
         seen: set[tuple[str, int | None, str]] = set()

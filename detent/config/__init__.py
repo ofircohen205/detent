@@ -90,7 +90,7 @@ class ProxyConfig(BaseModel):
     """Configuration for the HTTP reverse proxy."""
 
     host: str = Field(default=DEFAULT_PROXY_HOST, description="Bind address")
-    port: int = Field(default=DEFAULT_PROXY_PORT, description="Listen port")
+    port: int = Field(default=DEFAULT_PROXY_PORT, ge=1, le=65535, description="Listen port")
     upstream_url: str | None = Field(default=None, description="Explicit upstream LLM API base URL")
 
 
@@ -132,6 +132,20 @@ class DetentConfig(BaseModel):
 
     @classmethod
     def load(cls, path: str | Path | None = None) -> DetentConfig:
+        """Load config from a YAML file, env var, or defaults.
+
+        Resolution order:
+        1. ``path`` argument
+        2. ``DETENT_CONFIG`` environment variable
+        3. ``detent.yaml`` in current directory
+        4. Built-in defaults with all stages enabled
+
+        Args:
+            path: Explicit path to a YAML config file (optional).
+
+        Returns:
+            Populated DetentConfig instance.
+        """
         config_path = cls._resolve_path(path)
         if config_path is not None and config_path.exists():
             logger.info(f"Loading config from {config_path}")
@@ -185,4 +199,5 @@ class DetentConfig(BaseModel):
         return cls(pipeline=PipelineConfig(stages=default_stages))
 
     def get_enabled_stages(self) -> list[StageConfig]:
+        """Return only the pipeline stages whose ``enabled`` flag is True."""
         return [s for s in self.pipeline.stages if s.enabled]

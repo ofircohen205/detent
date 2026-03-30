@@ -43,11 +43,12 @@ class AgentAdapter(ABC):
     _ACTION_TYPE_MAP: dict[str, ActionType] = {
         "Write": ActionType.FILE_WRITE,
         "Edit": ActionType.FILE_WRITE,
+        "NotebookEdit": ActionType.FILE_WRITE,  # Claude Code notebook edits
         "Bash": ActionType.SHELL_EXEC,
         "Read": ActionType.FILE_READ,
         "WebFetch": ActionType.WEB_FETCH,
-        "create_file": ActionType.FILE_WRITE,
-        "run_command": ActionType.SHELL_EXEC,
+        "create_file": ActionType.FILE_WRITE,  # Codex legacy name
+        "run_command": ActionType.SHELL_EXEC,  # Codex legacy name
         "read_file": ActionType.FILE_READ,
     }
 

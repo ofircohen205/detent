@@ -36,7 +36,7 @@ Detent is a **verification runtime** — not a tool wrapper, not a hook script, 
 ### Architecture Diagram
 
 ```
-AI Agent (Claude Code / Cursor / Aider / etc.)
+AI Agent (Claude Code / Codex / Gemini / LangGraph)
        |
        | (LLM API traffic)
        ↓
@@ -84,7 +84,7 @@ AI Agent (Claude Code / Cursor / Aider / etc.)
 
 Detent intercepts all LLM API traffic between the user/IDE and the agent, implemented as an HTTP reverse proxy. When the agent's LLM response contains tool calls (file writes, bash execution), Detent sees them before the agent executes them.
 
-**Mechanism:** Set `ANTHROPIC_BASE_URL` (Claude Code) or `OPENAI_BASE_URL` (Cursor, Codex CLI) to route through Detent's proxy. Point 1 response parsing is selected from the resolved upstream provider, not from the configured agent name.
+**Mechanism:** Set `ANTHROPIC_BASE_URL` (Claude Code) or `OPENAI_BASE_URL` (Codex) to route through Detent's proxy. Point 1 response parsing is selected from the resolved upstream provider, not from the configured agent name.
 
 **What it sees:** Full tool call intent before any filesystem change.
 
@@ -113,11 +113,11 @@ Detent intercepts individual tool calls via agent-specific adapters before they 
 
 **Hook adapters** (Point 2 — enforcement, pre-execution interception):
 
-| Agent           | Hook mechanism                             | Endpoint              | Module                          |
-| --------------- | ------------------------------------------ | --------------------- | ------------------------------- |
-| **Claude Code** | `PreToolUse` hook (stdin JSON → exit code) | `/hooks/claude-code`  | `adapters/hook/claude_code.py`  |
-| **Codex CLI**   | Pre-exec hook (OpenAI-style JSON payload)  | `/hooks/codex`        | `adapters/hook/codex.py`        |
-| **Gemini CLI**  | `BeforeTool` hook (POST JSON)              | `/hooks/gemini`       | `adapters/hook/gemini.py`       |
+| Agent           | Hook mechanism                                                      | Endpoint              | Module                          |
+| --------------- | ------------------------------------------------------------------- | --------------------- | ------------------------------- |
+| **Claude Code** | `PreToolUse` hook on `Write\|Edit\|NotebookEdit` (stdin JSON)      | `/hooks/claude-code`  | `adapters/hook/claude_code.py`  |
+| **Codex CLI**   | Pre-exec hook in `.codex/hooks.json` (OpenAI-style JSON payload)   | `/hooks/codex`        | `adapters/hook/codex.py`        |
+| **Gemini CLI**  | `BeforeTool` hook (POST JSON, native Gemini tool names)             | `/hooks/gemini`       | `adapters/hook/gemini.py`       |
 
 **Graph adapters** (Point 2 — enforcement via graph node):
 
@@ -125,13 +125,6 @@ Detent intercepts individual tool calls via agent-specific adapters before they 
 | ------------ | ----------------------------------------------------------- | ----------------------- |
 | **LangGraph** | `VerificationNode` inserted into agent graph               | `adapters/langgraph.py` |
 
-**Planned adapters**:
-
-| Agent                | Interception Mechanism                        | Status |
-| -------------------- | --------------------------------------------- | ------ |
-| **Aider**            | LiteLLM callback injection + `Coder` subclass | ❌     |
-| **Cline / Roo Code** | MCP stdio proxy + `.clinerules`/hooks         | ❌     |
-| **OpenHands**        | Event stream subscription + REST API          | ❌     |
 
 ---
 
@@ -191,7 +184,7 @@ Each agent has a different mechanism for registering a pre-execution hook. Deten
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "",
+        "matcher": "Write|Edit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -225,10 +218,25 @@ Payload shape received by Detent:
 
 #### Codex CLI
 
-`detent init` writes the hook config automatically to `.codex/instructions.md`. To register it manually, set the pre-exec hook in your Codex CLI configuration to POST each tool call to `/hooks/codex`:
+`detent init` writes the hook config automatically to `.codex/hooks.json`. To register it manually, add a `PreToolUse` entry to `.codex/hooks.json`:
 
-```bash
-DETENT_HOOK=http://127.0.0.1:7070/hooks/codex
+```json
+// .codex/hooks.json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "curl -s -X POST http://127.0.0.1:7070/hooks/codex -H 'Content-Type: application/json' -d @-"
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
 Detent accepts two payload formats from Codex:
@@ -479,7 +487,7 @@ All intercepted events are normalized to a common schema (derived from OpenTelem
 ```python
 class AgentAction:
     action_type: Literal["file_write", "shell_exec", "file_read", "web_fetch", "mcp_tool"]
-    agent: Literal["claude-code", "cursor", "aider", "cline", "openhands", "codex", "langgraph"]
+    agent: Literal["claude-code", "codex", "gemini", "langgraph"]
     tool_name: str          # e.g. "Write", "Bash", "Edit"
     tool_input: dict        # raw tool input (file_path, content, etc.)
     tool_call_id: str       # e.g. "toolu_01ABC..."
@@ -494,7 +502,7 @@ The pipeline always receives `AgentAction`, never raw agent-specific payloads. T
 
 ## Python SDK
 
-Detent ships a first-class Python SDK for programmatic use (especially LangGraph and Aider integrations).
+Detent ships a first-class Python SDK for programmatic use (especially LangGraph integrations).
 
 ```python
 from detent import DetentProxy, VerificationPipeline, VerificationStage
@@ -648,12 +656,9 @@ class MyAgentAdapter(AgentAdapter):
 # detent/adapters/__init__.py
 ADAPTERS = {
     "claude-code": ClaudeCodeAdapter,
-    "cursor": CursorAdapter,
     "codex": CodexAdapter,
-    "langgraph": LangGraphAdapter,
-    "litellm": LiteLLMAdapter,
     "gemini": GeminiAdapter,
-    "openapi": OpenAPIAdapter,
+    "langgraph": LangGraphAdapter,
     "my-agent": MyAgentAdapter,   # add here
 }
 ```
@@ -842,7 +847,7 @@ async def run(self, action: AgentAction) -> VerificationResult:
 
 ### v1.0 — Production Ready ✅ Complete
 
-- [x] All 7 agent adapters (HTTP: Claude Code, Cursor, Codex; Hook: Gemini, LiteLLM, OpenAPI; Graph: LangGraph)
+- [x] All 4 agent adapters (HTTP: Claude Code, Codex; Hook: Gemini; Graph: LangGraph)
 - [x] Security scanning pipeline (Bandit + Semgrep)
 - [x] Multi-language support: Python, JavaScript/TypeScript, Rust, Go
 - [x] Observability: OpenTelemetry traces and metrics (`detent/observability/`)
@@ -888,7 +893,7 @@ async def run(self, action: AgentAction) -> VerificationResult:
 The `detent` command provides four operations:
 
 **1. `detent init`** — Interactive setup
-- Detects agent type (claude-code, langgraph, cursor, aider)
+- Detects agent type (claude-code, codex, gemini, langgraph)
 - Prompts for policy profile (strict, standard, permissive)
 - Creates `detent.yaml` and `.detent/session/` directory
 - Example:
@@ -987,8 +992,8 @@ from detent import (
     # Stages
     VerificationStage, SyntaxStage, LintStage, TypecheckStage, TestsStage,
     # Adapters
-    AgentAdapter, ClaudeCodeAdapter, CursorAdapter, CodexAdapter,
-    LangGraphAdapter, LiteLLMAdapter, GeminiAdapter, OpenAPIAdapter,
+    AgentAdapter, ClaudeCodeAdapter, CodexAdapter,
+    GeminiAdapter, LangGraphAdapter,
     HTTPProxyAdapter, HookAdapter,
     # Types
     DetentSessionConflictError, IPCMessageType,

@@ -25,6 +25,7 @@ Detent is **not** a code review product, code generation tool, or CI plugin. It 
 
 - ✅ v0.1 (Proof of Concept) — Complete. Full package with CLI, SDK exports, session management, verification pipeline, checkpoint engine, and 324+ tests.
 - ✅ v1.0 (Production Ready) — Complete (released 2026-03-16)
+- ✅ v1.1 (Hook Scope Fix) — Complete (released 2026-03-28). Hook matcher scoped to file-write tools only; Codex hook config corrected; 427+ tests.
 - ⏳ v2.0 (Enterprise Platform) — Planned
 
 **Key Documentation:**
@@ -91,7 +92,7 @@ docker compose --profile tools up
 ```
 Point 1 (Conversation Layer):
   AI Agent ──[LLM API traffic]──► HTTP Reverse Proxy (Detent)
-  • Set ANTHROPIC_BASE_URL (Claude Code) or OPENAI_BASE_URL (Cursor/Codex)
+  • Set ANTHROPIC_BASE_URL (Claude Code) or OPENAI_BASE_URL (Codex)
   • Sees what the agent plans to do (intent interception)
 
 Point 2 (Tool Execution Layer):
@@ -112,7 +113,7 @@ Point 2 (Tool Execution Layer):
 | **CLI**                   | `detent init`, `detent run`, `detent status`, `detent rollback`      |
 | **Python SDK**            | `DetentProxy`, `VerificationPipeline`, `VerificationStage`           |
 
-### Project Structure (v1.0.0)
+### Project Structure (v1.2.0)
 
 ```
 detent/
@@ -122,8 +123,8 @@ detent/
 ├── adapters/
 │   ├── base.py
 │   ├── langgraph.py
-│   ├── http/          ← claude_code.py, cursor.py, codex.py
-│   └── hook/          ← gemini.py, litellm.py, openapi.py
+│   ├── http/          ← claude_code.py, codex.py, providers.py
+│   └── hook/          ← claude_code.py, codex.py, gemini.py
 ├── checkpoint/        ← engine.py, savepoint.py, schemas.py
 ├── cli/               ← app.py, init.py, run.py, status.py, rollback.py, proxy.py
 ├── config/            ← __init__.py, languages.py
@@ -140,7 +141,7 @@ detent/
     ├── lint/          ← base.py, _ruff.py, _eslint.py, _clippy.py, _go_vet.py
     ├── typecheck/     ← base.py, _mypy.py, _tsc.py, _cargo_check.py, _go_build.py
     ├── tests/         ← base.py, _pytest.py, _jest.py, _cargo_test.py, _go_test.py
-    └── security/      ← base.py (Semgrep + Bandit)
+    └── security/      ← base.py (Semgrep + Bandit + sub-stage orchestration), _secrets.py (detect-secrets), _dep_scan.py (pip-audit)
 ```
 
 ### Normalized Action Schema
@@ -150,7 +151,7 @@ All intercepted events from any agent are normalized to `AgentAction` before the
 ```python
 class AgentAction:
     action_type: Literal["file_write", "shell_exec", "file_read", "web_fetch", "mcp_tool"]
-    agent: str           # "claude-code" | "cursor" | "aider" | ...
+    agent: str           # "claude-code" | "codex" | "gemini" | "langgraph"
     tool_name: str       # "Write" | "Bash" | "Edit" | ...
     tool_input: dict     # raw tool input (file_path, content, etc.)
     tool_call_id: str
@@ -312,7 +313,7 @@ Quick steps:
 
 ```bash
 ANTHROPIC_BASE_URL=http://localhost:7070   # Route Claude Code traffic through Detent
-OPENAI_BASE_URL=http://localhost:7070      # Route Cursor/Codex traffic through Detent
+OPENAI_BASE_URL=http://localhost:7070      # Route Codex traffic through Detent
 DETENT_CONFIG=./detent.yaml               # Path to config file
 DETENT_LOG_LEVEL=INFO                     # DEBUG | INFO | WARNING | ERROR
 ```
@@ -328,11 +329,18 @@ DETENT_LOG_LEVEL=INFO                     # DEBUG | INFO | WARNING | ERROR
   - Full unit tests for pipeline and checkpoint engine (324+ tests) ✅
 
 - ✅ **v1.0 (Production Ready) — Complete (released 2026-03-16):**
-  - HTTP adapters (Claude Code, Cursor, Codex) + hook adapters (Gemini, LiteLLM, OpenAPI) ✅
+  - HTTP adapters (Claude Code, Codex) + hook adapters (Claude Code, Codex, Gemini) ✅
+  - LangGraph VerificationNode ✅
   - Multi-language stages: Python, JavaScript/TypeScript, Go, Rust ✅
   - Security scanning (Semgrep + Bandit) ✅
   - OpenTelemetry tracing + metrics; circuit breakers ✅
   - Docker + docker-compose ✅
+
+- ✅ **v1.1 (Hook Scope Fix) — Complete (released 2026-03-28):**
+  - PreToolUse hook matcher scoped to `Write|Edit|NotebookEdit` ✅
+  - Codex hook config corrected to `.codex/hooks.json` ✅
+  - Adapter-level FILE_WRITE guard; Gemini tool name isolation ✅
+  - 427+ tests ✅
 
 - ⏳ **v2.0 (Enterprise Platform) — Planned:**
   - Detent Cloud (managed SaaS); multi-agent orchestration; VS Code extension
@@ -375,7 +383,7 @@ Do NOT implement these — they are explicitly out of scope:
 - ❌ Token-level constrained decoding (Detent operates at tool call level, not inside LLM sampling)
 - ❌ Proprietary verification logic (Detent wraps open-source tools; it does not compete with them)
 - ❌ Web UI (v0.1 and v1.0 are CLI + SDK only)
-- ❌ Windows support (v0.1 — Linux and macOS only)
+- ❌ Windows support (Linux and macOS only)
 - ❌ Built-in LLM (feedback synthesis uses structured templates in v0.1; LLM-assisted is P1)
 
 ## External Resources
@@ -450,5 +458,5 @@ result = await pipeline.run(action)
 
 ---
 
-**Last Updated:** 2026-03-16
-**Version:** 1.0.0
+**Last Updated:** 2026-03-30
+**Version:** 1.2.0

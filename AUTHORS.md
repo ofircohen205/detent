@@ -9,7 +9,6 @@
 ### Inspiration & Research
 
 - **OpenAI** — For research on verification patterns and LLM safety
-- **OpenHands** — For insights on agent feedback synthesis
 - **Anthropic** — For Claude models and agent integration guidance
 
 ### Technologies & Libraries

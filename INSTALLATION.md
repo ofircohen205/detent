@@ -4,7 +4,7 @@ Get Detent up and running in minutes.
 
 ## System Requirements
 
-- **OS:** Linux or macOS (Windows support coming in v1.0)
+- **OS:** Linux or macOS (Windows is not supported)
 - **Python:** 3.12 or later
 - **Disk:** 500 MB for installation + dependencies
 - **RAM:** 1 GB minimum (2+ GB recommended)
@@ -51,7 +51,7 @@ Verify installation:
 
 ```bash
 detent --version
-# Expected: detent, version 0.1.0
+# Expected: detent, version 1.2.0
 
 detent --help
 # Shows available commands

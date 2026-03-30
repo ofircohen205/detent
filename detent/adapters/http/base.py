@@ -122,7 +122,7 @@ class HTTPProxyAdapter(AgentAdapter):
 
 
 class OpenAICompatibleAdapter(HTTPProxyAdapter):
-    """Shared intercept logic for OpenAI-compatible agents (Codex, Cursor, etc.)."""
+    """Shared intercept logic for OpenAI-compatible agents (Codex, etc.)."""
 
     _RESPONSES_API_TOOL_TYPES = frozenset({"function_call", "custom_tool_call", "mcp_call"})
 

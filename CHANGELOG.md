@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-03-30
+
+### Added
+
+- **Secret scanning sub-stage** — `detent/stages/security/_secrets.py` integrates `detect-secrets` into the `SecurityStage`; runs concurrently with Semgrep and Bandit on every file write; returns one error Finding per detected secret with a fix suggestion to use an environment variable or secrets manager
+- **Dependency vulnerability scanning sub-stage** — `detent/stages/security/_dep_scan.py` integrates `pip-audit` into the `SecurityStage`; scans `requirements*.txt` files for known CVEs via the OSV database before they are written to disk; returns one error Finding per vulnerable package with upgrade guidance
+- **`detect-secrets` added to security optional extras** — `pip install detent[security]` now installs `detect-secrets>=1.5,<2` alongside Semgrep and Bandit
+- **`detent.yaml` `secrets` and `dep_scan` config sections** — both new sub-scanners are enabled by default; can be individually disabled via `secrets.enabled: false` / `dep_scan.enabled: false`
+- **Context-aware extension guard** — hook adapters (Claude Code, Codex, Gemini) and the LangGraph adapter now use `is_verifiable_file()` from `detent.config.languages`; code files (`.py`, `.ts`, `.go`, `.rs`, etc.) and dependency manifests (`requirements*.txt`, `pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod`) pass through; all other file types are skipped without verification
+- **Hook scope fix** — Claude Code `PreToolUse` hook matcher scoped to `Write|Edit|NotebookEdit` only (was firing on every tool call); adapter-level `FILE_WRITE` guard added to all hook adapters (Claude Code, Codex, Gemini) as defence-in-depth
+- **Codex hook config corrected** — hook config moved to `.codex/hooks.json` (was `.codex/instructions.md`); migration logic upgrades stale entries in-place on next `detent init`; port range validation and symlink-escape protection added to `configure_claude_code_hook()` and `configure_codex_hook()`
+- **Benchmark suite** — `benchmarks/` package with pytest-benchmark fixtures measuring pipeline overhead and checkpoint SAVEPOINT/rollback latency; `benchmarks.yml` CI workflow enforces per-benchmark thresholds and posts a step-summary report
+- **80% coverage gate** — CI (`ci.yml`) now fails if test coverage drops below 80%; HTML + XML coverage artifacts uploaded on every run
+- **Documentation suite** — `docs/tutorials/` (5 guides: getting started, Claude Code, Codex, Gemini, LangGraph) and `docs/architecture/` (4 deep dives: dual-point interception, checkpoint engine, verification pipeline, feedback synthesis)
+- **API reference docs** — `make docs` builds pdoc-generated HTML to `docs/api/`; `make serve-docs` for local hot-reload preview; `pdoc` added to `docs` optional extras (`pip install detent[docs]`)
+- **GitHub Pages workflow** — `.github/workflows/docs.yml` publishes API reference to GitHub Pages on every push to `main`
+
+### Fixed
+
+- Benchmark CI: rollback threshold corrected to 100 KB; defensive key-match check prevents false threshold failures on missing benchmark keys
+- pip-audit JSON format parsing corrected (dict, not list)
+
 ## [1.1.0] - 2026-03-26
 
 ### Added
@@ -174,22 +196,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Python-focused** — Only Python verification stages; JavaScript support planned for v1.0
 - **Limited agent support** — Claude Code (production) and LangGraph (tested); 5 more agents planned for v1.0
-- **Linux/macOS only** — Windows support planned for v1.0
+- **Linux/macOS only** — Windows is not supported
 - **No security scanning** — Planned for v1.0 (Semgrep, Bandit)
 - **Basic IPC** — Unix domain sockets only; no network communication
 - **No web UI** — CLI and SDK only in v0.1
 
 ## [Unreleased]
-
-### Planned for v1.0 (Q3 2026)
-
-- TypeScript/JavaScript verification stages (ESLint, TypeScript compiler, Jest)
-- Complete agent adapter coverage (Cursor, Aider, LiteLLM, OpenAPI, Gemini, Perplexity)
-- Security scanning integration (Semgrep, Bandit)
-- GitHub Actions integration and workflow templates
-- Windows support
-- Performance optimizations and benchmarking
-- Plugin system for custom stages and adapters
 
 ### Planned for v2.0 (Q1 2027)
 

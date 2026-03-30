@@ -64,6 +64,12 @@ class CircuitBreaker:
         return self._state
 
     async def call(self, coro: Coroutine[Any, Any, T]) -> T:
+        """Execute *coro* under circuit-breaker protection.
+
+        Raises:
+            CircuitOpenError: If the circuit is open and the recovery
+                window has not elapsed yet.
+        """
         async with self._lock:
             if self._state == "open":
                 now = time.monotonic()

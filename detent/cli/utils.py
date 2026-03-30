@@ -30,6 +30,8 @@ if TYPE_CHECKING:
 
 logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
+_DETENT_HOOK_MATCHER = "Write|Edit|NotebookEdit"
+
 
 class CLIConsole:
     """Small wrapper matching the subset of Rich Console used by the CLI."""
@@ -65,9 +67,9 @@ def detect_agent() -> str:
 
     Detection priority:
     1. ANTHROPIC_BASE_URL env var → claude-code
-    2. OPENAI_BASE_URL env var → cursor
+    2. OPENAI_BASE_URL env var → codex
     3. .claude/settings.json OR .claude/config.json (project or home) → claude-code
-    4. .cursor/ in project root or ~/.cursor/ in home dir → cursor
+    4. .codex/ in project root → codex
     5. langgraph in pyproject.toml → langgraph
     6. agent.py or agents/ directory → langgraph
     7. Default → unknown
@@ -75,7 +77,7 @@ def detect_agent() -> str:
     if os.getenv("ANTHROPIC_BASE_URL"):
         return "claude-code"
     if os.getenv("OPENAI_BASE_URL"):
-        return "cursor"
+        return "codex"
 
     home = Path.home()
     if (
@@ -86,8 +88,8 @@ def detect_agent() -> str:
     ):
         return "claude-code"
 
-    if Path(".cursor").exists() or (home / ".cursor").exists():
-        return "cursor"
+    if Path(".codex").exists():
+        return "codex"
 
     pyproject = Path("pyproject.toml")
     if pyproject.exists() and "langgraph" in pyproject.read_text():
@@ -119,13 +121,26 @@ def configure_claude_code_hook(port: int = 7070) -> bool:
     Returns:
         True if the hook was added or was already present, False on error.
     """
+    if not (1 <= port <= 65535):
+        raise ValueError(f"port must be 1-65535, got {port!r}")
+
     settings_path = Path(".claude") / "settings.json"
+
+    # Reject symlinks that escape the project root (mirrors savepoint.py pattern)
+    project_root = Path.cwd().resolve()
+    try:
+        resolved = settings_path.parent.resolve()
+    except OSError:
+        resolved = settings_path.parent
+    if not resolved.is_relative_to(project_root):
+        logger.error("Settings path %s escapes project root; refusing to write", resolved)
+        return False
+
     hook_command = (
-        f"curl -s -X POST http://127.0.0.1:{port}/hooks/claude-code -H 'Content-Type: application/json' -d @-"
+        f"curl -s -X POST http://127.0.0.1:{port}/hooks/claude-code" f" -H 'Content-Type: application/json' -d @-"
     )
     detent_hook = {"type": "command", "command": hook_command}
 
-    # Load existing settings or start fresh
     settings: dict[str, Any] = {}
     if settings_path.exists():
         try:
@@ -137,28 +152,48 @@ def configure_claude_code_hook(port: int = 7070) -> bool:
     hooks: dict[str, Any] = settings.setdefault("hooks", {})
     pretool_entries: list[dict[str, Any]] = hooks.setdefault("PreToolUse", [])
 
-    # Idempotent: skip if a Detent hook is already registered
-    for entry in pretool_entries:
-        for h in entry.get("hooks", []):
-            if "/hooks/claude-code" in h.get("command", ""):
-                logger.debug("Detent hook already present in %s; skipping", settings_path)
-                return True
+    # Identify stale and correct Detent entries
+    stale = [
+        entry
+        for entry in pretool_entries
+        if any("/hooks/claude-code" in h.get("command", "") for h in entry.get("hooks", []))
+        and entry.get("matcher") != _DETENT_HOOK_MATCHER
+    ]
+    correct = [
+        entry
+        for entry in pretool_entries
+        if any("/hooks/claude-code" in h.get("command", "") for h in entry.get("hooks", []))
+        and entry.get("matcher") == _DETENT_HOOK_MATCHER
+    ]
 
-    # Append a catch-all entry that sends every tool call to Detent
-    pretool_entries.append({"matcher": "", "hooks": [detent_hook]})
+    if correct and not stale:
+        logger.debug("Detent hook already correct in %s; skipping", settings_path)
+        return True
+
+    if stale:
+        logger.info("Migrating %d stale Detent hook entry/entries in %s", len(stale), settings_path)
+        for entry in stale:
+            pretool_entries.remove(entry)
+
+    if not correct:
+        pretool_entries.append({"matcher": _DETENT_HOOK_MATCHER, "hooks": [detent_hook]})
 
     settings_path.parent.mkdir(parents=True, exist_ok=True)
-    settings_path.write_text(json.dumps(settings, indent=2) + "\n")
+    try:
+        settings_path.write_text(json.dumps(settings, indent=2) + "\n")
+    except OSError as e:
+        logger.warning("Could not write %s: %s", settings_path, e)
+        return False
     logger.info("Wrote Detent hook to %s", settings_path)
     return True
 
 
 def configure_codex_hook(port: int = 7070) -> bool:
-    """Write the Detent hook into .codex/instructions.md for Codex CLI.
+    """Write the Detent PreToolUse hook into .codex/hooks.json for Codex CLI.
 
-    Codex CLI reads shell instructions from .codex/instructions.md in the
-    project root. We append a note directing Codex to send tool calls to the
-    Detent hook endpoint for enforcement.
+    Codex reads hook config from .codex/hooks.json. We register a Bash matcher
+    hook — Codex currently only exposes Bash as a hookable tool. File-write
+    detection within Bash commands is a future improvement.
 
     Args:
         port: Port the Detent proxy is listening on (default 7070).
@@ -166,30 +201,48 @@ def configure_codex_hook(port: int = 7070) -> bool:
     Returns:
         True if the hook was added or was already present, False on error.
     """
-    instructions_path = Path(".codex") / "instructions.md"
-    hook_note = f"DETENT_HOOK=http://127.0.0.1:{port}/hooks/codex"
+    if not (1 <= port <= 65535):
+        raise ValueError(f"port must be 1-65535, got {port!r}")
 
-    if instructions_path.exists():
-        try:
-            existing = instructions_path.read_text()
-        except OSError as e:
-            logger.warning("Could not read %s: %s", instructions_path, e)
-            return False
-        if "/hooks/codex" in existing:
-            logger.debug("Detent codex hook already present in %s; skipping", instructions_path)
-            return True
-        content = existing.rstrip("\n") + "\n\n" + hook_note + "\n"
-    else:
-        content = hook_note + "\n"
+    hooks_path = Path(".codex") / "hooks.json"
 
+    project_root = Path.cwd().resolve()
     try:
-        instructions_path.parent.mkdir(parents=True, exist_ok=True)
-        instructions_path.write_text(content)
-    except OSError as e:
-        logger.warning("Could not write %s: %s", instructions_path, e)
+        resolved = hooks_path.parent.resolve()
+    except OSError:
+        resolved = hooks_path.parent
+    if not resolved.is_relative_to(project_root):
+        logger.error("Hooks path %s escapes project root; refusing to write", resolved)
         return False
 
-    logger.info("Wrote Detent hook to %s", instructions_path)
+    hook_command = f"curl -s -X POST http://127.0.0.1:{port}/hooks/codex" f" -H 'Content-Type: application/json' -d @-"
+    detent_hook = {"type": "command", "command": hook_command}
+
+    hooks_data: dict[str, Any] = {}
+    if hooks_path.exists():
+        try:
+            hooks_data = json.loads(hooks_path.read_text())
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning("Could not read %s: %s", hooks_path, e)
+            return False
+
+    hooks: dict[str, Any] = hooks_data.setdefault("hooks", {})
+    pretool_entries: list[dict[str, Any]] = hooks.setdefault("PreToolUse", [])
+
+    for entry in pretool_entries:
+        for h in entry.get("hooks", []):
+            if "/hooks/codex" in h.get("command", ""):
+                logger.debug("Detent codex hook already present in %s; skipping", hooks_path)
+                return True
+
+    pretool_entries.append({"matcher": "Bash", "hooks": [detent_hook]})
+    hooks_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        hooks_path.write_text(json.dumps(hooks_data, indent=2) + "\n")
+    except OSError as e:
+        logger.warning("Could not write %s: %s", hooks_path, e)
+        return False
+    logger.info("Wrote Detent hook to %s", hooks_path)
     return True
 
 

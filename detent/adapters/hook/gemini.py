@@ -27,6 +27,20 @@ from detent.schema import ActionType, AgentAction, RiskLevel
 class GeminiAdapter(HookAdapter):
     """Adapter for Gemini CLI BeforeTool hook payloads."""
 
+    # Gemini-native tool names — override base class map to keep namespaces isolated.
+    # Claude Code tools (Write, Edit, NotebookEdit) are intentionally absent here;
+    # they remain only on AgentAdapter._ACTION_TYPE_MAP for Claude Code and Codex adapters.
+    _ACTION_TYPE_MAP: dict[str, ActionType] = {
+        "write_file": ActionType.FILE_WRITE,
+        "edit": ActionType.FILE_WRITE,
+        "read_file": ActionType.FILE_READ,
+        "run_shell_command": ActionType.SHELL_EXEC,
+        "list_directory": ActionType.FILE_READ,
+        "search_file_content": ActionType.FILE_READ,
+        "web_fetch": ActionType.WEB_FETCH,
+        "google_web_search": ActionType.WEB_FETCH,
+    }
+
     @property
     def agent_name(self) -> str:
         return "gemini"
@@ -50,14 +64,17 @@ class GeminiAdapter(HookAdapter):
         if not tool_name:
             self._log_intercept_error("missing_field", "tool_name required")
             self._log_intercept_end(None)
-            raise ValueError("Missing tool_name in Gemini payload")
+            return None  # normalized: return None, not raise (consistent with all other adapters)
 
         tool_call_id = raw_event.get("tool_call_id") or raw_event.get("id") or ""
         session_id = raw_event.get("session_id", "")
 
         action_type = self._ACTION_TYPE_MAP.get(tool_name, ActionType.MCP_TOOL)
-        if tool_name not in self._ACTION_TYPE_MAP:
-            self._log_intercept_error("unknown_tool", f"unknown tool '{tool_name}', treating as mcp_tool")
+
+        # Only intercept file-write tools — skip reads, shell, web, mcp, unknown
+        if action_type != ActionType.FILE_WRITE:
+            self._log_intercept_end(None)
+            return None
 
         action = AgentAction(
             action_type=action_type,
