@@ -132,6 +132,20 @@ class DetentConfig(BaseModel):
 
     @classmethod
     def load(cls, path: str | Path | None = None) -> DetentConfig:
+        """Load config from a YAML file, env var, or defaults.
+
+        Resolution order:
+        1. ``path`` argument
+        2. ``DETENT_CONFIG`` environment variable
+        3. ``detent.yaml`` in current directory
+        4. Built-in defaults with all stages enabled
+
+        Args:
+            path: Explicit path to a YAML config file (optional).
+
+        Returns:
+            Populated DetentConfig instance.
+        """
         config_path = cls._resolve_path(path)
         if config_path is not None and config_path.exists():
             logger.info(f"Loading config from {config_path}")
@@ -185,4 +199,5 @@ class DetentConfig(BaseModel):
         return cls(pipeline=PipelineConfig(stages=default_stages))
 
     def get_enabled_stages(self) -> list[StageConfig]:
+        """Return only the pipeline stages whose ``enabled`` flag is True."""
         return [s for s in self.pipeline.stages if s.enabled]
