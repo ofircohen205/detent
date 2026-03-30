@@ -5,7 +5,7 @@
 .DEFAULT_GOAL := help
 .PHONY: help install dev lint format typecheck test test-unit test-integration \
         clean docker-build docker-run docker-stop docker-logs compose-up \
-        compose-down compose-logs
+        compose-down compose-logs docs serve-docs
 
 PYTHON     = uv run python
 PYTEST     = uv run pytest
@@ -123,3 +123,14 @@ compose-logs: ## Tail logs for all compose services
 
 compose-shell: ## Open a shell inside the proxy compose service
 	docker compose exec proxy /bin/bash
+
+
+# ─── Docs ─────────────────────────────────────────────────────────────────────
+
+PDOC = uv run pdoc
+
+docs: ## Build API reference docs to docs/api/
+	$(PDOC) detent --output-dir docs/api/ --docformat google
+
+serve-docs: ## Serve API reference docs locally with hot-reload
+	$(PDOC) detent --docformat google

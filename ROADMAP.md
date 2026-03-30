@@ -81,15 +81,42 @@ See the plan documents in `docs/plans/` for complete details.
 
 ### Documentation
 
-- [ ] API reference documentation
-  - Auto-generated from docstrings
-  - Estimated effort: 1 week
-- [ ] Video tutorials
-  - Getting started
-  - Integration guides
-  - Estimated effort: 2 weeks
-- [ ] Architecture deep dives
-  - Estimated effort: 1 week
+- [x] Core documentation suite
+  - `README.md` — quick start, feature overview, agent comparison table, SDK examples
+  - `AGENTS.md` — comprehensive architecture guide: dual-point interception, normalized action schema, all four agent adapters, verification pipeline stages, checkpoint SAVEPOINT semantics, feedback synthesis engine, Python SDK reference, extension guides
+  - `DEVELOPMENT.md` — local development guide: project structure, Make targets, Docker, environment variables, test matrix
+  - `INSTALLATION.md` — installation guide for pip, uv, and source; per-agent hook setup; policy profiles
+  - `CONTRIBUTING.md` — contributor workflow: branching, TDD, code review, CI requirements
+  - `SUPPORT.md` — support channels and issue escalation
+  - `AUTHORS.md` — project authors and contributors
+  - `SECURITY.md` — vulnerability disclosure policy and contact
+
+- [x] Architecture deep dives (covered in `AGENTS.md`)
+  - Dual-point interception model (HTTP proxy vs hook adapters)
+  - Checkpoint engine: SAVEPOINT per tool call, in-memory + shadow git, atomic rollback
+  - Verification pipeline: stage composition, parallel execution, fail-fast semantics
+  - Feedback synthesis: raw tool output → structured LLM-optimized JSON
+  - Agent adapter matrix: normalization to `AgentAction`, hook scope, file-write guard
+
+- [x] Integration guides (covered in `README.md` and `AGENTS.md`)
+  - Claude Code: HTTP proxy + PreToolUse hook
+  - Codex CLI: HTTP proxy + pre-exec hook (`.codex/hooks.json`)
+  - Gemini CLI: BeforeTool hook
+  - LangGraph: VerificationNode drop-in
+  - Policy profiles: strict, standard, permissive
+
+- [x] API reference documentation
+  - Auto-generated from docstrings via pdoc
+  - `make docs` builds to `docs/api/`; `make serve-docs` for local preview
+  - Published to GitHub Pages on push to `main` via `.github/workflows/docs.yml`
+  - Covers all 33 public exports in `detent/__init__.py`
+
+- [x] Video tutorials (written tutorial guides)
+  - `docs/tutorials/01-getting-started.md` — install, init, first interception, SDK usage
+  - `docs/tutorials/02-claude-code.md` — dual-point setup, hook scope, troubleshooting
+  - `docs/tutorials/03-codex.md` — hooks.json setup, proxy, payload formats
+  - `docs/tutorials/04-gemini.md` — BeforeTool hook, tool name mapping, limitations
+  - `docs/tutorials/05-langgraph.md` — VerificationNode wiring, custom config, routing
 
 ## v1.1 — Hook Scope & Adapter Correctness ✅ COMPLETE
 
@@ -182,4 +209,4 @@ Want to implement a feature yourself? See [CONTRIBUTING.md](./CONTRIBUTING.md)!
 
 ---
 
-Last updated: 2026-03-28
+Last updated: 2026-03-30
