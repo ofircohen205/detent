@@ -66,4 +66,7 @@ tmp/
 *.docx
 
 # Plans
-docs/
+docs/superpowers/
+
+# Generated API docs (built in CI by pdoc)
+docs/api/
