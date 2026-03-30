@@ -64,17 +64,12 @@ See the plan documents in `docs/plans/` for complete details.
 
 - [x] GitHub Actions integration
   - ci.yml, pre-publish.yml, publish.yml, security.yml, stale.yml
-- [ ] GitLab CI templates
-  - Estimated effort: 1 week
-- [ ] Jenkins plugin
-  - Estimated effort: 2 weeks
 
 ### Performance & Reliability
 
-- [ ] Benchmark suite
-  - Measure proxy overhead
-  - Stage execution times
-  - Estimated effort: 1 week
+- [x] Benchmark suite
+  - pytest-benchmark suite measuring pipeline overhead and checkpoint rollback latency
+  - Benchmark CI workflow with threshold enforcement and step summary reporting
 - [x] Distributed tracing (OpenTelemetry)
   - Tracer, metrics, exporter, schemas in detent/observability/
 - [x] Circuit breaker for stages

@@ -113,7 +113,7 @@ Point 2 (Tool Execution Layer):
 | **CLI**                   | `detent init`, `detent run`, `detent status`, `detent rollback`      |
 | **Python SDK**            | `DetentProxy`, `VerificationPipeline`, `VerificationStage`           |
 
-### Project Structure (v1.0.0)
+### Project Structure (v1.2.0)
 
 ```
 detent/
@@ -458,5 +458,5 @@ result = await pipeline.run(action)
 
 ---
 
-**Last Updated:** 2026-03-16
-**Version:** 1.0.0
+**Last Updated:** 2026-03-30
+**Version:** 1.2.0

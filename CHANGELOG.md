@@ -191,14 +191,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned for v1.0 (Q3 2026)
-
-- TypeScript/JavaScript verification stages (ESLint, TypeScript compiler, Jest)
-- Security scanning integration (Semgrep, Bandit)
-- GitHub Actions integration and workflow templates
-- Performance optimizations and benchmarking
-- Plugin system for custom stages and adapters
-
 ### Planned for v2.0 (Q1 2027)
 
 - Detent Cloud (managed SaaS)

@@ -232,7 +232,7 @@ See [AGENTS.md](./AGENTS.md) for API reference.
 
 **Q: Does Detent support TypeScript/JavaScript?**
 
-A: Not yet. v0.1 is Python-focused. TypeScript/JavaScript support is planned for v1.0.
+A: Yes. TypeScript/JavaScript stages (ESLint, tsc, Jest) are fully supported as of v1.0.
 
 **Q: Can I add a custom verification stage?**
 
@@ -240,7 +240,7 @@ A: Yes! See [DEVELOPMENT.md](./DEVELOPMENT.md#adding-a-verification-stage).
 
 **Q: What about Go, Rust, Java?**
 
-A: Coming in v1.0. See [ROADMAP.md](./ROADMAP.md) for timeline.
+A: Go and Rust stages (go vet, go build, go test, clippy, cargo check, cargo test) are fully supported as of v1.0. Java is not currently supported.
 
 ### Performance & Troubleshooting
 
