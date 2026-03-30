@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.0] - 2026-03-29
+## [1.2.0] - 2026-03-30
 
 ### Added
 
@@ -14,6 +14,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`detect-secrets` added to security optional extras** — `pip install detent[security]` now installs `detect-secrets>=1.5,<2` alongside Semgrep and Bandit
 - **`detent.yaml` `secrets` and `dep_scan` config sections** — both new sub-scanners are enabled by default; can be individually disabled via `secrets.enabled: false` / `dep_scan.enabled: false`
 - **Context-aware extension guard** — hook adapters (Claude Code, Codex, Gemini) and the LangGraph adapter now use `is_verifiable_file()` from `detent.config.languages`; code files (`.py`, `.ts`, `.go`, `.rs`, etc.) and dependency manifests (`requirements*.txt`, `pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod`) pass through; all other file types are skipped without verification
+- **Hook scope fix** — Claude Code `PreToolUse` hook matcher scoped to `Write|Edit|NotebookEdit` only (was firing on every tool call); adapter-level `FILE_WRITE` guard added to all hook adapters (Claude Code, Codex, Gemini) as defence-in-depth
+- **Codex hook config corrected** — hook config moved to `.codex/hooks.json` (was `.codex/instructions.md`); migration logic upgrades stale entries in-place on next `detent init`; port range validation and symlink-escape protection added to `configure_claude_code_hook()` and `configure_codex_hook()`
+- **Benchmark suite** — `benchmarks/` package with pytest-benchmark fixtures measuring pipeline overhead and checkpoint SAVEPOINT/rollback latency; `benchmarks.yml` CI workflow enforces per-benchmark thresholds and posts a step-summary report
+- **80% coverage gate** — CI (`ci.yml`) now fails if test coverage drops below 80%; HTML + XML coverage artifacts uploaded on every run
+- **Documentation suite** — `docs/tutorials/` (5 guides: getting started, Claude Code, Codex, Gemini, LangGraph) and `docs/architecture/` (4 deep dives: dual-point interception, checkpoint engine, verification pipeline, feedback synthesis)
+- **API reference docs** — `make docs` builds pdoc-generated HTML to `docs/api/`; `make serve-docs` for local hot-reload preview; `pdoc` added to `docs` optional extras (`pip install detent[docs]`)
+- **GitHub Pages workflow** — `.github/workflows/docs.yml` publishes API reference to GitHub Pages on every push to `main`
+
+### Fixed
+
+- Benchmark CI: rollback threshold corrected to 100 KB; defensive key-match check prevents false threshold failures on missing benchmark keys
+- pip-audit JSON format parsing corrected (dict, not list)
 
 ## [1.1.0] - 2026-03-26
 
